@@ -1,0 +1,27 @@
+# Supabase CLI local cache/session (contains access tokens — never commit)
+.supabase/
+supabase/.temp/
+supabase/.branches/
+
+# Environment variables (if we ever add a .env file)
+.env
+.env.local
+.env.*.local
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editor folders
+.vscode/
+.idea/
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Node (if we ever add tooling)
+node_modules/
+npm-debug.log*
+
+# Netlify local cache
+.netlify/

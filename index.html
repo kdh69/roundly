@@ -1,0 +1,2298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Roundly">
+<meta name="theme-color" content="#1B4F72">
+<title>Roundly — Clinician Route &amp; Productivity Tracker</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+/* ============================================================
+   COLOR SYSTEM
+   Design rule: semantic "chip" colors (tag-*, pts-*, status pills)
+   ALWAYS keep a light tint background + saturated text, in BOTH
+   light and dark mode, so they read as badges, not as
+   theme-following surfaces. Only the app chrome (page bg, cards,
+   borders, header) switches between light/dark. This is what was
+   broken before — tag backgrounds were swapping to dark tints
+   which collapsed contrast against their own text color.
+   ============================================================ */
+:root{
+  /* ACCENT (swappable via theme picker) — default "Ocean Navy" */
+  --accent:#1B4F72;--accent-mid:#2471A3;--accent-light:#D6EAF8;
+
+  /* Semantic chip colors — FIXED, do not change with dark mode */
+  --teal:#0E7C66;--teal-bg:#D1F2EB;
+  --amber:#A85A0E;--amber-bg:#FDEBD0;
+  --red:#A93226;--red-bg:#FADBD8;
+  --purple:#6C3483;--purple-bg:#E8DAEF;
+  --green:#1E8449;--green-bg:#D5F5E3;
+
+  /* Chrome — these DO change with dark mode */
+  --gray-50:#F8F9FA;--gray-100:#EEF0F2;--gray-200:#DEE2E6;
+  --gray-400:#ADB5BD;--gray-600:#6C757D;--gray-800:#343A40;
+  --white:#FFFFFF;--text:#1C2833;--text-muted:#5D6D7E;--border:#D5D8DC;
+
+  --radius-sm:6px;--radius-md:10px;--radius-lg:16px;
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+  --safe-top:env(safe-area-inset-top,0px);
+}
+/* DARK MODE — chrome only. Chip colors above are untouched on purpose. */
+[data-theme="dark"]{
+  --gray-50:#13171B;--gray-100:#1B2025;--gray-200:#2A3038;
+  --gray-400:#5A6470;--gray-600:#9AA4B0;--gray-800:#E4E8EC;
+  --white:#1A1F24;--text:#EBEEF0;--text-muted:#A7B0BB;--border:#323A43;
+  /* accent-light is used as a tinted background behind accent text —
+     in dark mode we want a dim version of the accent, not a near-black
+     one, so text drawn in --accent stays legible on it. */
+  --accent-light:#1E3A52;
+}
+
+/* ===== THEME PRESETS (color personalization) ===== */
+[data-accent="navy"]{--accent:#1B4F72;--accent-mid:#2471A3;--accent-light:#D6EAF8;}
+[data-theme="dark"][data-accent="navy"]{--accent-light:#1E3A52;}
+
+[data-accent="teal"]{--accent:#0E6B5C;--accent-mid:#159381;--accent-light:#D1F2EB;}
+[data-theme="dark"][data-accent="teal"]{--accent-light:#163B33;}
+
+[data-accent="plum"]{--accent:#6C3483;--accent-mid:#8E44AD;--accent-light:#EAD9F2;}
+[data-theme="dark"][data-accent="plum"]{--accent-light:#3A1F4A;}
+
+[data-accent="rose"]{--accent:#A33A5B;--accent-mid:#C2557A;--accent-light:#F8DCE6;}
+[data-theme="dark"][data-accent="rose"]{--accent-light:#3D1E28;}
+
+[data-accent="forest"]{--accent:#28714C;--accent-mid:#379163;--accent-light:#D5F0E0;}
+[data-theme="dark"][data-accent="forest"]{--accent-light:#1A3326;}
+
+[data-accent="slate"]{--accent:#3D4F5C;--accent-mid:#566B7A;--accent-light:#DCE4E8;}
+[data-theme="dark"][data-accent="slate"]{--accent-light:#252E35;}
+
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--gray-50);color:var(--text);overscroll-behavior:none;transition:background 0.2s,color 0.2s}
+#app{display:flex;flex-direction:column;height:100vh;height:100dvh;max-width:480px;margin:0 auto;background:var(--white);position:relative}
+
+/* ===== SIGN-IN GATE ===== */
+#signin-screen{position:fixed;inset:0;background:linear-gradient(160deg,var(--accent),var(--accent-mid));z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;color:white}
+.signin-logo{width:72px;height:72px;border-radius:20px;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;font-size:34px;margin-bottom:18px}
+.signin-title{font-size:24px;font-weight:700;margin-bottom:4px}
+.signin-sub{font-size:13px;opacity:0.8;margin-bottom:36px;text-align:center;max-width:280px;line-height:1.5}
+.signin-google-btn{width:100%;max-width:300px;padding:13px;border-radius:var(--radius-md);border:none;background:white;color:#1C2833;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 4px 14px rgba(0,0,0,0.2)}
+.signin-google-btn:active{transform:scale(0.98)}
+.signin-google-icon{width:20px;height:20px;flex-shrink:0}
+.signin-loading{margin-top:20px;font-size:13px;opacity:0.8;display:none}
+.signin-loading.show{display:block}
+.signin-error{margin-top:16px;font-size:12px;color:#FFD2CC;text-align:center;max-width:280px;display:none}
+.signin-error.show{display:block}
+.signin-footer{position:absolute;bottom:24px;font-size:11px;opacity:0.6;text-align:center;max-width:280px}
+.app-loading-overlay{position:fixed;inset:0;background:var(--gray-50);z-index:9000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}
+.app-loading-spinner{width:36px;height:36px;border-radius:50%;border:3px solid var(--accent-light);border-top-color:var(--accent);animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.app-loading-text{font-size:13px;color:var(--text-muted)}
+
+/* ===== LOCK SCREEN ===== */
+#lock-screen{position:fixed;inset:0;background:var(--accent);z-index:9999;display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px;color:white}
+#lock-screen.show{display:flex}
+.lock-icon{width:72px;height:72px;border-radius:50%;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;font-size:34px;margin-bottom:18px}
+.lock-title{font-size:18px;font-weight:700;margin-bottom:6px}
+.lock-sub{font-size:13px;opacity:0.75;margin-bottom:24px;text-align:center}
+.lock-dots{display:flex;gap:14px;margin-bottom:28px}
+.lock-dot{width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,0.5);transition:background 0.15s}
+.lock-dot.filled{background:white;border-color:white}
+.lock-keypad{display:grid;grid-template-columns:repeat(3,64px);gap:14px}
+.lock-key{width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,0.12);border:none;color:white;font-size:22px;font-weight:600;cursor:pointer}
+.lock-key:active{background:rgba(255,255,255,0.25)}
+.lock-key.lock-clear{font-size:13px;font-weight:600}
+.lock-error{color:#FFD2CC;font-size:12px;margin-top:14px;min-height:16px}
+.lock-forgot{margin-top:18px;background:none;border:none;color:rgba(255,255,255,0.7);font-size:12px;text-decoration:underline;cursor:pointer}
+
+/* ===== HEADER ===== */
+.app-header{background:var(--accent);color:white;padding:calc(10px + var(--safe-top)) 16px 0;flex-shrink:0}
+.header-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.header-title{display:flex;align-items:center;gap:8px}
+.header-icon{width:32px;height:32px;background:rgba(255,255,255,0.15);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:18px}
+.header-title h1{font-size:17px;font-weight:600}
+.header-title p{font-size:12px;opacity:0.7}
+.header-right{display:flex;align-items:center;gap:8px}
+.header-date{font-size:12px;opacity:0.8;background:rgba(255,255,255,0.12);padding:4px 10px;border-radius:20px}
+.btn-settings{background:rgba(255,255,255,0.12);border:none;color:white;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.btn-settings:active{background:rgba(255,255,255,0.25)}
+
+/* ===== STATS BAR ===== */
+.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:0;background:var(--accent);padding:0 8px 10px;flex-shrink:0}
+.stat-card{text-align:center;padding:5px 4px;background:rgba(255,255,255,0.1);border-radius:var(--radius-sm);margin:0 3px}
+.stat-val{font-size:17px;font-weight:700;color:white;line-height:1}
+.stat-lbl{font-size:9px;color:rgba(255,255,255,0.7);margin-top:2px}
+
+/* ===== WEEKLY BAR ===== */
+.weekly-bar-wrap{background:var(--accent);padding:0 12px 12px;flex-shrink:0}
+.weekly-bar-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+.weekly-bar-lbl{font-size:11px;color:rgba(255,255,255,0.8)}
+.weekly-bar-val{font-size:11px;font-weight:700;color:white}
+.weekly-bar-track{height:8px;background:rgba(255,255,255,0.2);border-radius:4px;overflow:hidden}
+.weekly-bar-fill{height:100%;border-radius:4px;transition:width 0.4s ease;background:#3FCB7E}
+.weekly-bar-fill.warn{background:#F0A848}
+
+/* ===== HOME BAR ===== */
+.home-bar{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--border);background:var(--gray-50);flex-shrink:0}
+.home-bar label{font-size:12px;font-weight:600;color:var(--accent);white-space:nowrap}
+.home-bar input{flex:1;font-size:13px;padding:7px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--white);color:var(--text)}
+.home-bar input:focus{outline:none;border-color:var(--accent-mid)}
+.btn-set{font-size:12px;padding:7px 12px;border-radius:var(--radius-sm);border:none;background:var(--accent);color:white;cursor:pointer;white-space:nowrap;font-weight:600}
+.home-confirmed{font-size:11px;padding:6px 12px;color:var(--teal);background:var(--teal-bg);display:none;align-items:center;gap:5px;border-bottom:1px solid var(--border)}
+.home-confirmed.show{display:flex}
+
+/* ===== SORT BAR ===== */
+.sort-bar{display:flex;align-items:center;gap:6px;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--gray-50);flex-shrink:0;overflow-x:auto}
+.sort-bar::-webkit-scrollbar{display:none}
+.sort-lbl{font-size:11px;color:var(--text-muted);font-weight:600;white-space:nowrap}
+.sort-btn{font-size:11px;padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:var(--white);color:var(--text-muted);cursor:pointer;white-space:nowrap;font-weight:500}
+.sort-btn.active{background:var(--accent);color:white;border-color:var(--accent)}
+.sort-btn-opt{font-size:11px;padding:5px 10px;border-radius:20px;border:1px solid var(--teal);background:var(--teal-bg);color:var(--teal);cursor:pointer;white-space:nowrap;font-weight:600;margin-left:auto}
+
+/* ===== DATE STRIP (for day switching within Visits tab) ===== */
+.date-strip{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--white);flex-shrink:0}
+.date-strip-btn{background:var(--gray-100);border:none;width:30px;height:30px;border-radius:50%;color:var(--text-muted);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.date-strip-label{flex:1;text-align:center;font-size:13px;font-weight:600;color:var(--accent);cursor:pointer}
+.date-strip-today{font-size:11px;padding:5px 10px;border-radius:20px;border:1px solid var(--accent);color:var(--accent);background:none;cursor:pointer;white-space:nowrap;font-weight:600}
+
+/* ===== SCROLL ===== */
+.scroll-area{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+
+/* ===== VISIT CARDS ===== */
+.visit-list{padding:8px 10px;display:flex;flex-direction:column;gap:8px}
+.empty-state{padding:48px 24px;text-align:center;color:var(--text-muted)}
+.empty-icon{font-size:48px;margin-bottom:12px}
+.empty-state p{font-size:14px;line-height:1.5}
+.visit-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden}
+.visit-card.status-done{border-left:4px solid var(--teal)}
+.visit-card.status-skipped{border-left:4px solid var(--gray-400);opacity:0.7}
+.visit-card.status-pending{border-left:4px solid var(--amber)}
+.card-top{display:flex;align-items:flex-start;gap:10px;padding:10px 12px 8px}
+.visit-num-bubble{width:26px;height:26px;border-radius:50%;background:var(--accent-light);color:var(--accent);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.visit-card.status-done .visit-num-bubble{background:var(--teal-bg);color:var(--teal)}
+.visit-card.status-skipped .visit-num-bubble{background:var(--gray-100);color:var(--gray-600)}
+.card-info{flex:1;min-width:0}
+.card-name{font-size:15px;font-weight:600;color:var(--text);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-addr{font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:5px}
+.card-tags{display:flex;flex-wrap:wrap;gap:4px}
+.tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;white-space:nowrap}
+.tag-visit{background:var(--accent-light);color:var(--accent)}
+.tag-type{background:var(--amber-bg);color:var(--amber)}
+.tag-time{background:var(--gray-100);color:var(--gray-800)}
+.tag-dur{background:var(--gray-100);color:var(--gray-800)}
+.tag-miles{background:var(--teal-bg);color:var(--teal)}
+.card-pts-badge{flex-shrink:0}
+.pts-circle{width:40px;height:40px;border-radius:50%;background:var(--purple-bg);display:flex;flex-direction:column;align-items:center;justify-content:center}
+.pts-num{font-size:14px;font-weight:700;color:var(--purple);line-height:1}
+.pts-word{font-size:8px;color:var(--purple);opacity:0.85}
+.card-notes{padding:0 12px 8px 48px;font-size:12px;color:var(--text-muted);font-style:italic}
+.card-actions{display:flex;border-top:1px solid var(--gray-100);background:var(--gray-50)}
+.card-action-btn{flex:1;padding:8px 2px;font-size:9.5px;font-weight:600;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--text-muted);border-right:1px solid var(--gray-200)}
+.card-action-btn:last-child{border-right:none}
+.card-action-btn:active{background:var(--gray-100)}
+.card-action-btn.btn-done-act{color:var(--teal)}
+.card-action-btn.btn-nav-act{color:var(--accent-mid)}
+.card-action-btn.btn-del-act{color:var(--red)}
+.act-icon{font-size:14px}
+
+/* ===== AUTOCOMPLETE ===== */
+.addr-wrap{position:relative}
+.addr-dropdown{position:absolute;top:100%;left:0;right:0;background:var(--white);border:1px solid var(--accent-mid);border-top:none;border-radius:0 0 var(--radius-sm) var(--radius-sm);z-index:9999;max-height:240px;overflow-y:auto;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.15)}
+.addr-dropdown.open{display:block}
+.addr-option{padding:10px 12px;font-size:13px;color:var(--text);cursor:pointer;border-bottom:1px solid var(--gray-100);line-height:1.3}
+.addr-option:last-child{border-bottom:none}
+.addr-option:active,.addr-option:hover{background:var(--accent-light);color:var(--accent)}
+.addr-option .opt-sub{font-size:11px;color:var(--text-muted);margin-top:1px}
+.addr-option-saved{background:var(--teal-bg)}
+.addr-searching{padding:10px 12px;font-size:12px;color:var(--text-muted);font-style:italic}
+.addr-group-label{padding:6px 12px 4px;font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;background:var(--gray-50)}
+
+/* ===== SLIDE PANELS ===== */
+.slide-panel{position:fixed;bottom:0;left:50%;transform:translateX(-50%) translateY(100%);width:100%;max-width:480px;background:var(--white);border-radius:var(--radius-lg) var(--radius-lg) 0 0;border-top:1px solid var(--border);padding:0 0 calc(16px + var(--safe-bottom));z-index:500;transition:transform 0.25s ease;max-height:94dvh;overflow-y:auto}
+.slide-panel.open{transform:translateX(-50%) translateY(0)}
+.panel-handle{width:36px;height:4px;background:var(--gray-200);border-radius:2px;margin:10px auto 0}
+.panel-title{font-size:16px;font-weight:700;padding:12px 16px 10px;color:var(--accent);border-bottom:1px solid var(--gray-100);display:flex;align-items:center;justify-content:space-between}
+.panel-close{width:28px;height:28px;border-radius:50%;background:var(--gray-100);border:none;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:var(--text-muted)}
+.form-body{padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.field-label{font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px}
+.form-input,.form-select{width:100%;font-size:15px;padding:10px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--white);color:var(--text);appearance:none;-webkit-appearance:none}
+.form-input:focus,.form-select:focus{outline:none;border-color:var(--accent-mid);box-shadow:0 0 0 3px var(--accent-light)}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.select-wrap{position:relative}
+.select-wrap::after{content:'▾';position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--gray-600);pointer-events:none;font-size:12px}
+.pts-preview{background:var(--purple-bg);border-radius:var(--radius-sm);padding:10px 14px;display:flex;align-items:center;justify-content:space-between}
+.pts-preview-lbl{font-size:13px;color:var(--purple);font-weight:600}
+.pts-preview-val{font-size:22px;font-weight:700;color:var(--purple)}
+.geo-confirm-box{background:var(--teal-bg);border:1px solid var(--teal);border-radius:var(--radius-sm);padding:10px 12px;font-size:12px;color:var(--teal);display:none;font-weight:500}
+.geo-confirm-box.show{display:block}
+.geo-warn-box{background:var(--amber-bg);border:1px solid var(--amber);border-radius:var(--radius-sm);padding:10px 12px;font-size:12px;color:var(--amber);display:none;font-weight:500}
+.geo-warn-box.show{display:block}
+.btn-add-submit{width:100%;padding:14px;border-radius:var(--radius-md);border:none;background:var(--accent);color:white;font-size:16px;font-weight:700;cursor:pointer;margin-top:4px}
+.btn-add-submit:active{background:var(--accent-mid)}
+
+/* ===== SETTINGS PANEL ===== */
+.settings-section{padding:14px 16px;border-bottom:1px solid var(--gray-100)}
+.settings-section-title{font-size:12px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px}
+.setting-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--gray-100)}
+.setting-row:last-child{border-bottom:none}
+.setting-name{font-size:13px;color:var(--text);flex:1}
+.setting-pts-input{width:72px;font-size:14px;font-weight:700;padding:6px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);text-align:right;color:var(--purple);background:var(--purple-bg)}
+.setting-pts-input:focus{outline:none;border-color:var(--purple);box-shadow:0 0 0 2px var(--purple-bg)}
+.setting-target-row{display:flex;align-items:center;gap:10px;margin-top:4px}
+.setting-target-row label{font-size:14px;color:var(--text);flex:1}
+.setting-target-input{width:80px;font-size:18px;font-weight:700;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);text-align:center;color:var(--accent);background:var(--white)}
+.setting-target-input:focus{outline:none;border-color:var(--accent-mid);box-shadow:0 0 0 2px var(--accent-light)}
+.btn-save-settings{width:100%;padding:13px;border-radius:var(--radius-md);border:none;background:var(--teal);color:white;font-size:15px;font-weight:700;cursor:pointer;margin-top:6px}
+.btn-reset-settings{width:100%;padding:10px;border-radius:var(--radius-md);border:1px solid var(--border);background:var(--white);color:var(--text-muted);font-size:13px;font-weight:600;cursor:pointer;margin-top:6px}
+.btn-danger-outline{width:100%;padding:10px;border-radius:var(--radius-md);border:1px solid var(--red);background:var(--red-bg);color:var(--red);font-size:13px;font-weight:700;cursor:pointer;margin-top:6px}
+.share-box{background:var(--gray-50);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px;display:flex;flex-direction:column;gap:10px}
+.share-box p{font-size:13px;color:var(--text-muted);line-height:1.5}
+
+/* ===== THEME / APPEARANCE ===== */
+.theme-toggle-row{display:flex;gap:8px;margin-bottom:14px}
+.theme-btn{flex:1;padding:12px 8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--white);color:var(--text-muted);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12px;font-weight:600}
+.theme-btn.active{border-color:var(--accent);color:var(--accent);background:var(--accent-light)}
+.theme-btn .theme-icon{font-size:22px}
+.accent-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.accent-swatch{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 6px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--white);cursor:pointer}
+.accent-swatch.active{border-color:var(--text);background:var(--gray-50)}
+.accent-dot{width:30px;height:30px;border-radius:50%;border:2px solid rgba(0,0,0,0.08)}
+.accent-name{font-size:11px;color:var(--text-muted);font-weight:600}
+
+/* ===== ACCOUNT / GOOGLE ===== */
+.google-btn{width:100%;padding:11px;border-radius:var(--radius-md);border:1px solid var(--border);background:var(--white);color:var(--text);font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px}
+.google-btn:active{background:var(--gray-50)}
+.google-g{width:18px;height:18px;flex-shrink:0}
+.signed-in-box{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--teal-bg);border-radius:var(--radius-md);border:1px solid var(--teal)}
+.signed-in-avatar{width:32px;height:32px;border-radius:50%;background:var(--teal);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0}
+.signed-in-info{flex:1;min-width:0}
+.signed-in-name{font-size:13px;font-weight:600;color:var(--text)}
+.signed-in-email{font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btn-signout{font-size:11px;padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:var(--white);color:var(--text-muted);cursor:pointer;white-space:nowrap}
+.sync-note{font-size:11px;color:var(--text-muted);line-height:1.5;margin-top:8px}
+
+/* ===== PIN LOCK SETTINGS ===== */
+.pin-status-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0}
+.pin-status-text{font-size:13px;color:var(--text)}
+.pin-status-badge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px}
+.pin-on{background:var(--teal-bg);color:var(--teal)}
+.pin-off{background:var(--gray-100);color:var(--text-muted)}
+.btn-pin-action{font-size:12px;padding:7px 14px;border-radius:var(--radius-sm);border:1px solid var(--accent);background:none;color:var(--accent);cursor:pointer;font-weight:600}
+
+/* ===== BACKUP/RESTORE ===== */
+.backup-row{display:flex;gap:8px}
+.btn-backup{flex:1;padding:11px;border-radius:var(--radius-md);border:none;background:var(--accent);color:white;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+.btn-restore{flex:1;padding:11px;border-radius:var(--radius-md);border:1px solid var(--accent);background:none;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+.backup-note{font-size:11px;color:var(--text-muted);line-height:1.5;margin-top:8px}
+
+/* ===== FAB ===== */
+.fab{position:fixed;bottom:calc(64px + var(--safe-bottom));right:calc(50% - 226px);width:52px;height:52px;border-radius:50%;background:var(--accent);color:white;border:none;font-size:26px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;z-index:100}
+.fab:active{transform:scale(0.93)}
+.fab-extra{position:fixed;bottom:calc(64px + var(--safe-bottom));left:calc(50% - 226px);width:52px;height:52px;border-radius:50%;background:var(--purple);color:white;border:none;font-size:22px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;z-index:100}
+.fab-extra:active{transform:scale(0.93)}
+
+/* ===== BOTTOM NAV ===== */
+.bottom-nav{display:flex;border-top:1px solid var(--border);background:var(--white);padding-bottom:var(--safe-bottom);flex-shrink:0}
+.bottom-nav-btn{flex:1;padding:7px 2px;font-size:9.5px;font-weight:600;border:none;background:none;color:var(--gray-600);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px}
+.bottom-nav-btn .nav-icon{font-size:18px}
+.bottom-nav-btn.active{color:var(--accent)}
+
+/* ===== VIEWS ===== */
+#view-map,#view-list,#view-summary,#view-points,#view-calendar{display:none;flex-direction:column;flex:1;overflow:hidden;min-height:0}
+#view-map.visible,#view-list.visible,#view-summary.visible,#view-points.visible,#view-calendar.visible{display:flex}
+
+/* ===== MAP ===== */
+#leaflet-map{flex:1;z-index:1;min-height:0}
+.leaflet-container{height:100%;width:100%}
+.map-controls{padding:10px 12px;display:flex;gap:8px;border-top:1px solid var(--border);background:var(--white);flex-shrink:0;flex-wrap:wrap}
+.map-ctrl-btn{flex:1;min-width:120px;padding:10px 8px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--white);color:var(--text-muted);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px}
+.map-ctrl-btn.primary{background:var(--accent);color:white;border-color:var(--accent)}
+.map-ctrl-btn.success{background:var(--teal);color:white;border-color:var(--teal)}
+.map-layer-toggle{display:flex;gap:6px;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--gray-50);flex-shrink:0}
+.layer-btn{flex:1;padding:6px;font-size:11px;font-weight:600;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--white);color:var(--text-muted);cursor:pointer}
+.layer-btn.active{background:var(--accent);color:white;border-color:var(--accent)}
+.lf-popup h4{font-size:13px;font-weight:700;color:var(--accent);margin-bottom:4px}
+.lf-popup p{font-size:11px;color:var(--text-muted);margin-bottom:2px}
+.lf-popup .pop-tag{display:inline-block;font-size:10px;font-weight:700;padding:2px 6px;border-radius:20px;margin:3px 2px 0 0}
+.lf-popup .btn-nav{display:block;width:100%;padding:7px;margin-top:8px;border-radius:var(--radius-sm);border:none;background:var(--accent);color:white;font-size:12px;font-weight:700;cursor:pointer;text-align:center}
+.marker-pin{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;border:2.5px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.35)}
+
+/* ===== CALENDAR VIEW ===== */
+.cal-toolbar{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--border);background:var(--gray-50);flex-shrink:0}
+.cal-nav-btn{background:var(--white);border:1px solid var(--border);width:30px;height:30px;border-radius:50%;color:var(--text-muted);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.cal-month-label{font-size:14px;font-weight:700;color:var(--accent)}
+.cal-mode-toggle{display:flex;gap:6px}
+.cal-mode-btn{font-size:11px;padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:var(--white);color:var(--text-muted);cursor:pointer;font-weight:600}
+.cal-mode-btn.active{background:var(--accent);color:white;border-color:var(--accent)}
+.cal-grid-wrap{padding:10px 12px}
+.cal-weekday-row{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px}
+.cal-weekday{text-align:center;font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal-day{aspect-ratio:1;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--white);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;position:relative;padding:2px;gap:2px}
+.cal-day.other-month{opacity:0.35}
+.cal-day.is-today{border-color:var(--accent);border-width:2px}
+.cal-day.selected{background:var(--accent);border-color:var(--accent)}
+.cal-day.selected .cal-day-num{color:white}
+.cal-day-num{font-size:13px;font-weight:600;color:var(--text)}
+.cal-day-dots{display:flex;gap:2px;flex-wrap:wrap;justify-content:center;max-width:100%}
+.cal-day-dot{width:5px;height:5px;border-radius:50%}
+.cal-day-pts{font-size:8px;font-weight:700;color:var(--purple)}
+.cal-day.selected .cal-day-pts{color:white}
+
+.cal-week-strip{display:flex;gap:6px;padding:10px 12px;border-bottom:1px solid var(--border);overflow-x:auto}
+.cal-week-strip::-webkit-scrollbar{display:none}
+.cal-week-day{flex:1;min-width:56px;border-radius:var(--radius-md);border:1px solid var(--border);background:var(--white);padding:8px 4px;text-align:center;cursor:pointer}
+.cal-week-day.is-today{border-color:var(--accent);border-width:2px}
+.cal-week-day.selected{background:var(--accent);border-color:var(--accent)}
+.cal-week-day.selected .cwd-name,.cal-week-day.selected .cwd-num,.cal-week-day.selected .cwd-pts{color:white}
+.cwd-name{font-size:10px;color:var(--text-muted);font-weight:600;text-transform:uppercase}
+.cwd-num{font-size:16px;font-weight:700;color:var(--text);margin:2px 0}
+.cwd-pts{font-size:9px;color:var(--purple);font-weight:700}
+
+.cal-day-detail{flex:1;overflow-y:auto;padding:10px 12px}
+.cal-day-detail-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.cal-day-detail-header h3{font-size:14px;font-weight:700;color:var(--accent)}
+.cal-add-day-btn{font-size:12px;padding:6px 12px;border-radius:20px;border:none;background:var(--accent);color:white;cursor:pointer;font-weight:600}
+
+/* ===== POINTS VIEW ===== */
+.week-nav{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--gray-50);flex-shrink:0}
+.week-nav-btn{background:none;border:1px solid var(--border);border-radius:var(--radius-sm);padding:5px 12px;font-size:13px;cursor:pointer;color:var(--text-muted)}
+.week-nav-lbl{font-size:13px;font-weight:600;color:var(--accent)}
+.points-scroll{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+.week-target-card{background:var(--accent);color:white;border-radius:var(--radius-lg);padding:18px}
+.wtc-title{font-size:12px;opacity:0.8;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px}
+.wtc-nums{display:flex;align-items:baseline;gap:6px;margin-bottom:14px}
+.wtc-earned{font-size:44px;font-weight:700;line-height:1}
+.wtc-sep{font-size:22px;opacity:0.5}
+.wtc-target{font-size:22px;opacity:0.7}
+.wtc-unit{font-size:14px;opacity:0.65;margin-left:4px}
+.wtc-track{height:10px;background:rgba(255,255,255,0.22);border-radius:5px;overflow:hidden;margin-bottom:10px}
+.wtc-fill{height:100%;border-radius:5px;background:#3FCB7E;transition:width 0.5s ease}
+.wtc-fill.warn{background:#F0A848}
+.wtc-row{display:flex;justify-content:space-between;font-size:12px}
+.wtc-remain{opacity:0.85}
+.wtc-pct{font-weight:700}
+.day-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden}
+.day-card-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--gray-50);border-bottom:1px solid var(--border)}
+.day-card-header h3{font-size:13px;font-weight:700;color:var(--accent)}
+.day-pts-pill{font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;background:var(--purple-bg);color:var(--purple)}
+.day-visit-row{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--gray-100)}
+.day-visit-row:last-child{border-bottom:none}
+.dv-name{flex:1;font-size:13px;font-weight:500;color:var(--text);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dv-chips{display:flex;gap:4px;flex-shrink:0}
+.dv-chip{font-size:10px;font-weight:700;padding:2px 6px;border-radius:20px}
+.dv-cat{background:var(--accent-light);color:var(--accent)}
+.dv-pts{background:var(--purple-bg);color:var(--purple)}
+.dv-status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dv-extra-icon{font-size:14px;flex-shrink:0}
+.pts-ref-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden}
+.pts-ref-header{padding:10px 14px 8px;background:var(--gray-50);border-bottom:1px solid var(--border);font-size:13px;font-weight:700;color:var(--accent);display:flex;justify-content:space-between;align-items:center}
+.pts-ref-edit-btn{font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid var(--accent);background:none;color:var(--accent);cursor:pointer;font-weight:600}
+.pts-ref-row{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-bottom:1px solid var(--gray-100);font-size:13px}
+.pts-ref-row:last-child{border-bottom:none}
+.pts-ref-name{color:var(--text)}
+.pts-ref-val{font-weight:700;color:var(--purple)}
+.extra-pts-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--gray-100)}
+.extra-pts-row:last-child{border-bottom:none}
+.extra-pts-info{flex:1;min-width:0}
+.extra-pts-label{font-size:13px;font-weight:500;color:var(--text)}
+.extra-pts-date{font-size:11px;color:var(--text-muted)}
+.extra-pts-val{font-weight:700;color:var(--purple);font-size:13px}
+.extra-pts-del{background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:4px}
+
+/* ===== SUMMARY ===== */
+.summary-scroll{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+.summary-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px}
+.summary-card h3{font-size:13px;font-weight:700;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.05em}
+.summary-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--gray-100);font-size:13px}
+.summary-row:last-child{border-bottom:none}
+.s-label{color:var(--text-muted)}
+.s-val{font-weight:600;color:var(--text)}
+.mileage-big{font-size:36px;font-weight:700;color:var(--accent);text-align:center;padding:8px 0}
+.mileage-sub{font-size:13px;color:var(--text-muted);text-align:center;margin-bottom:8px}
+.export-btn{width:100%;padding:14px;border-radius:var(--radius-md);border:none;background:var(--teal);color:white;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+.visit-type-chip{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;background:var(--amber-bg);color:var(--amber);margin-right:4px}
+.visit-cat-chip{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;background:var(--accent-light);color:var(--accent)}
+
+/* ===== OVERLAY + TOAST ===== */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:400;opacity:0;pointer-events:none;transition:opacity 0.25s}
+.overlay.open{opacity:1;pointer-events:all}
+.toast{position:fixed;top:calc(16px + var(--safe-top));left:50%;transform:translateX(-50%) translateY(-80px);background:var(--gray-800);color:var(--white);padding:10px 18px;border-radius:var(--radius-md);font-size:13px;font-weight:500;z-index:600;transition:transform 0.25s ease;white-space:nowrap;max-width:90vw}
+.toast.show{transform:translateX(-50%) translateY(0)}
+[data-theme="dark"] .toast{background:#3A4250;color:#fff}
+
+@media(min-width:481px){
+  #app{border-left:1px solid var(--border);border-right:1px solid var(--border)}
+  .fab{right:calc(50% - 226px)}
+  .fab-extra{left:calc(50% - 226px)}
+}
+</style>
+</head>
+<body>
+
+<!-- SIGN-IN GATE -->
+<div id="signin-screen">
+  <div class="signin-logo">🔄</div>
+  <div class="signin-title">Roundly</div>
+  <div class="signin-sub">Sign in with Google to save your visits, patients, and points securely — your data stays private to your account.</div>
+  <button class="signin-google-btn" onclick="signInWithGoogle()">
+    <svg class="signin-google-icon" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.4-6.4C35.6 3 30.1 1 24 1 14.6 1 6.5 6.3 2.5 14.1l7.5 5.8C12 14.1 17.5 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.4 5.7c4.3-4 6.8-9.9 6.8-17.4z"/><path fill="#FBBC05" d="M10 19.9 2.5 14.1A23 23 0 0 0 1 24c0 3.6.9 7 2.4 9.9l7.6-5.9A14 14 0 0 1 10 24c0-1.4.2-2.8.5-4.1z"/><path fill="#34A853" d="M24 47c6.1 0 11.6-2 15.4-5.5l-7.4-5.7c-2 1.4-4.7 2.3-8 2.3-6.5 0-12-4.6-13.9-10.7l-7.6 5.9C6.5 41.7 14.6 47 24 47z"/></svg>
+    Sign in with Google
+  </button>
+  <div class="signin-loading" id="signin-loading">Connecting to Google…</div>
+  <div class="signin-error" id="signin-error"></div>
+  <div class="signin-footer">Each Google account gets its own private data. Nothing is shared between users.</div>
+</div>
+
+<!-- APP LOADING OVERLAY (shown briefly while data loads after sign-in) -->
+<div class="app-loading-overlay" id="app-loading-overlay" style="display:none">
+  <div class="app-loading-spinner"></div>
+  <div class="app-loading-text">Loading your data…</div>
+</div>
+
+<!-- LOCK SCREEN -->
+<div id="lock-screen">
+  <div class="lock-icon">🔒</div>
+  <div class="lock-title">Roundly Locked</div>
+  <div class="lock-sub" id="lock-sub">Enter your PIN to continue</div>
+  <div class="lock-dots" id="lock-dots">
+    <div class="lock-dot"></div><div class="lock-dot"></div><div class="lock-dot"></div><div class="lock-dot"></div>
+  </div>
+  <div class="lock-keypad" id="lock-keypad">
+    <button class="lock-key" data-key="1">1</button>
+    <button class="lock-key" data-key="2">2</button>
+    <button class="lock-key" data-key="3">3</button>
+    <button class="lock-key" data-key="4">4</button>
+    <button class="lock-key" data-key="5">5</button>
+    <button class="lock-key" data-key="6">6</button>
+    <button class="lock-key" data-key="7">7</button>
+    <button class="lock-key" data-key="8">8</button>
+    <button class="lock-key" data-key="9">9</button>
+    <button class="lock-key lock-clear" data-key="clear">Clear</button>
+    <button class="lock-key" data-key="0">0</button>
+    <button class="lock-key" data-key="back">⌫</button>
+  </div>
+  <div class="lock-error" id="lock-error"></div>
+  <button class="lock-forgot" onclick="forgotPin()">Forgot PIN? Sign out instead</button>
+</div>
+
+<div id="app" style="display:none">
+
+  <!-- HEADER -->
+  <div class="app-header">
+    <div class="header-top">
+      <div class="header-title">
+        <div class="header-icon">🔄</div>
+        <div><h1>Roundly</h1><p>Clinician Route &amp; Visit Tracker</p></div>
+      </div>
+      <div class="header-right">
+        <div class="header-date" id="today-date"></div>
+        <button class="btn-settings" onclick="openSettings()" title="Settings">⚙️</button>
+      </div>
+    </div>
+    <div class="stats-bar">
+      <div class="stat-card"><div class="stat-val" id="stat-miles">0.0</div><div class="stat-lbl">Est. Miles</div></div>
+      <div class="stat-card"><div class="stat-val" id="stat-pts-today">0.0</div><div class="stat-lbl">Today pts</div></div>
+      <div class="stat-card"><div class="stat-val" id="stat-pts-week">0.0</div><div class="stat-lbl">Week pts</div></div>
+      <div class="stat-card"><div class="stat-val" id="stat-pts-remain">—</div><div class="stat-lbl">To target</div></div>
+    </div>
+    <div class="weekly-bar-wrap">
+      <div class="weekly-bar-top">
+        <span class="weekly-bar-lbl" id="weekly-bar-lbl">Weekly target: 30 pts</span>
+        <span class="weekly-bar-val" id="weekly-bar-pct">0%</span>
+      </div>
+      <div class="weekly-bar-track"><div class="weekly-bar-fill" id="weekly-bar-fill" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <!-- VIEW: LIST -->
+  <div id="view-list" class="visible">
+    <div class="home-bar">
+      <label>🏠 Base:</label>
+      <div class="addr-wrap" style="flex:1">
+        <input type="text" id="home-addr" class="form-input" style="padding:7px 10px;font-size:13px" placeholder="Your starting address…" value="Charlotte, NC" autocomplete="off">
+        <div class="addr-dropdown" id="home-dropdown"></div>
+      </div>
+      <button class="btn-set" onclick="setHomeBase()">Set</button>
+    </div>
+    <div class="home-confirmed" id="home-confirmed">✓ <span id="home-confirmed-text"></span></div>
+
+    <div class="date-strip">
+      <button class="date-strip-btn" onclick="shiftListDate(-1)">‹</button>
+      <div class="date-strip-label" id="date-strip-label" onclick="switchView('calendar')">Today</div>
+      <button class="date-strip-btn" onclick="shiftListDate(1)">›</button>
+      <button class="date-strip-today" id="date-strip-today-btn" onclick="goToToday()" style="display:none">Today</button>
+    </div>
+
+    <div class="sort-bar">
+      <span class="sort-lbl">Sort:</span>
+      <button class="sort-btn active" id="sort-time" onclick="setSort('time')">⏰ Time</button>
+      <button class="sort-btn" id="sort-num" onclick="setSort('num')"># Order</button>
+      <button class="sort-btn" id="sort-status" onclick="setSort('status')">✓ Status</button>
+      <button class="sort-btn-opt" onclick="optimizeRoute()">⚡ Optimize</button>
+    </div>
+    <div class="scroll-area">
+      <div class="visit-list" id="visit-list-container"></div>
+    </div>
+  </div>
+
+  <!-- VIEW: CALENDAR -->
+  <div id="view-calendar">
+    <div class="cal-toolbar">
+      <button class="cal-nav-btn" onclick="calNav(-1)">‹</button>
+      <div class="cal-month-label" id="cal-month-label"></div>
+      <button class="cal-nav-btn" onclick="calNav(1)">›</button>
+    </div>
+    <div class="cal-toolbar" style="border-top:none">
+      <div class="cal-mode-toggle">
+        <button class="cal-mode-btn active" id="cal-mode-month" onclick="setCalMode('month')">Month</button>
+        <button class="cal-mode-btn" id="cal-mode-week" onclick="setCalMode('week')">Week</button>
+      </div>
+      <button class="date-strip-today" onclick="calGoToday()">Today</button>
+    </div>
+    <div id="cal-month-view">
+      <div class="cal-grid-wrap">
+        <div class="cal-weekday-row">
+          <div class="cal-weekday">S</div><div class="cal-weekday">M</div><div class="cal-weekday">T</div>
+          <div class="cal-weekday">W</div><div class="cal-weekday">T</div><div class="cal-weekday">F</div><div class="cal-weekday">S</div>
+        </div>
+        <div class="cal-grid" id="cal-grid"></div>
+      </div>
+    </div>
+    <div id="cal-week-view" style="display:none">
+      <div class="cal-week-strip" id="cal-week-strip"></div>
+    </div>
+    <div class="cal-day-detail scroll-area">
+      <div class="cal-day-detail-header">
+        <h3 id="cal-detail-date">—</h3>
+        <button class="cal-add-day-btn" onclick="openAddPanelForDate(selectedCalDate)">+ Add Visit</button>
+      </div>
+      <div id="cal-day-detail-list"></div>
+    </div>
+  </div>
+
+  <!-- VIEW: MAP -->
+  <div id="view-map">
+    <div class="map-layer-toggle">
+      <button class="layer-btn active" id="btn-satellite" onclick="setLayer('satellite')">🛰️ Satellite</button>
+      <button class="layer-btn" id="btn-street" onclick="setLayer('street')">🗺️ Street</button>
+      <button class="layer-btn" id="btn-hybrid" onclick="setLayer('hybrid')">🏙️ Hybrid</button>
+    </div>
+    <div id="leaflet-map"></div>
+    <div class="map-controls">
+      <button class="map-ctrl-btn primary" onclick="openFullRoute()">🗺️ Open in Maps</button>
+      <button class="map-ctrl-btn success" onclick="optimizeRoute()">⚡ Optimize Route</button>
+    </div>
+  </div>
+
+  <!-- VIEW: POINTS -->
+  <div id="view-points">
+    <div class="week-nav">
+      <button class="week-nav-btn" onclick="shiftWeek(-1)">← Prev</button>
+      <span class="week-nav-lbl" id="week-nav-lbl"></span>
+      <button class="week-nav-btn" onclick="shiftWeek(1)">Next →</button>
+    </div>
+    <div class="scroll-area">
+      <div class="points-scroll" id="points-content"></div>
+    </div>
+  </div>
+
+  <!-- VIEW: SUMMARY -->
+  <div id="view-summary">
+    <div class="scroll-area">
+      <div class="summary-scroll" id="summary-content"></div>
+    </div>
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <div class="bottom-nav">
+    <button class="bottom-nav-btn active" id="nav-list" onclick="switchView('list')"><span class="nav-icon">📋</span>Visits</button>
+    <button class="bottom-nav-btn" id="nav-calendar" onclick="switchView('calendar')"><span class="nav-icon">📅</span>Calendar</button>
+    <button class="bottom-nav-btn" id="nav-map" onclick="switchView('map')"><span class="nav-icon">🛰️</span>Map</button>
+    <button class="bottom-nav-btn" id="nav-points" onclick="switchView('points')"><span class="nav-icon">⭐</span>Points</button>
+    <button class="bottom-nav-btn" id="nav-summary" onclick="switchView('summary')"><span class="nav-icon">📊</span>Summary</button>
+  </div>
+</div>
+
+<!-- FABs -->
+<button class="fab" onclick="openAddPanel()" aria-label="Add patient visit">+</button>
+<button class="fab-extra" onclick="openExtraPanel()" aria-label="Add other productivity points" title="Add meeting/education points">⭐</button>
+
+<!-- OVERLAY -->
+<div class="overlay" id="overlay" onclick="closeAllPanels()"></div>
+
+<!-- ADD / EDIT VISIT PANEL -->
+<div class="slide-panel" id="add-panel">
+  <div class="panel-handle"></div>
+  <div class="panel-title"><span id="panel-title-text">Add Patient Visit</span> <button class="panel-close" onclick="closeAllPanels()">✕</button></div>
+  <div class="form-body">
+    <input type="hidden" id="f-edit-id" value="">
+    <div>
+      <div class="field-label">Patient name</div>
+      <div class="addr-wrap">
+        <input class="form-input" id="f-name" type="text" placeholder="Start typing name…" autocomplete="off">
+        <div class="addr-dropdown" id="name-dropdown"></div>
+      </div>
+    </div>
+    <div>
+      <div class="field-label">Address</div>
+      <div class="addr-wrap">
+        <input class="form-input" id="f-addr" type="text" placeholder="Start typing address…" autocomplete="off">
+        <div class="addr-dropdown" id="addr-dropdown"></div>
+      </div>
+      <div class="geo-confirm-box" id="geo-confirm-box"></div>
+      <div class="geo-warn-box" id="geo-warn-box">⚠️ Couldn't verify this address automatically. Please select it from the dropdown list, or double-check the spelling and ZIP code.</div>
+    </div>
+    <div class="form-row">
+      <div>
+        <div class="field-label">Visit date</div>
+        <input class="form-input" id="f-date" type="date">
+      </div>
+      <div>
+        <div class="field-label">Visit time</div>
+        <input class="form-input" id="f-time" type="time" value="09:00">
+      </div>
+    </div>
+    <div class="form-row">
+      <div>
+        <div class="field-label">Duration (min)</div>
+        <input class="form-input" id="f-dur" type="number" value="30" min="5" max="240">
+      </div>
+      <div>
+        <div class="field-label">Visit type</div>
+        <div class="select-wrap">
+          <select class="form-select" id="f-type">
+            <option value="wound">Wound Care</option>
+            <option value="labwork">Labwork</option>
+            <option value="picc">PICC Line DSG</option>
+            <option value="education">Education</option>
+            <option value="catheter">Catheter</option>
+            <option value="ostomy">Ostomy</option>
+            <option value="tpn">TPN</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="field-label">Visit category (points auto-filled)</div>
+      <div class="select-wrap">
+        <select class="form-select" id="f-cat" onchange="updatePtsPreview()">
+          <!-- populated by buildCatDropdown() -->
+        </select>
+      </div>
+    </div>
+    <div class="pts-preview">
+      <span class="pts-preview-lbl">⭐ Points for this visit</span>
+      <span class="pts-preview-val" id="pts-preview-val">—</span>
+    </div>
+    <div>
+      <div class="field-label">Notes (optional)</div>
+      <input class="form-input" id="f-notes" type="text" placeholder="e.g. gate code, call ahead…">
+    </div>
+    <button class="btn-add-submit" id="f-submit-btn" onclick="submitVisitForm()">+ Add to Route</button>
+    <button class="btn-reset-settings" id="f-delete-btn" style="display:none;color:var(--red);border-color:var(--red-bg)" onclick="deleteFromEditPanel()">🗑️ Delete this visit</button>
+  </div>
+</div>
+
+<!-- ADD EXTRA POINTS PANEL -->
+<div class="slide-panel" id="extra-panel">
+  <div class="panel-handle"></div>
+  <div class="panel-title">⭐ Add Productivity Points <button class="panel-close" onclick="closeAllPanels()">✕</button></div>
+  <div class="form-body">
+    <p style="font-size:12px;color:var(--text-muted);line-height:1.5">Use this for non-visit productivity that counts toward your weekly goal — staff meetings, education, training, chart audits, etc.</p>
+    <div>
+      <div class="field-label">What is this for?</div>
+      <input class="form-input" id="ex-label" type="text" placeholder="e.g. Staff meeting, CEU training…">
+    </div>
+    <div class="form-row">
+      <div>
+        <div class="field-label">Date</div>
+        <input class="form-input" id="ex-date" type="date">
+      </div>
+      <div>
+        <div class="field-label">Points</div>
+        <input class="form-input" id="ex-pts" type="number" value="0.5" min="0" max="20" step="0.05">
+      </div>
+    </div>
+    <button class="btn-add-submit" onclick="addExtraPoints()">+ Add Points</button>
+  </div>
+</div>
+
+<!-- SETTINGS PANEL -->
+<div class="slide-panel" id="settings-panel">
+  <div class="panel-handle"></div>
+  <div class="panel-title">⚙️ Settings <button class="panel-close" onclick="closeAllPanels()">✕</button></div>
+
+  <div class="settings-section">
+    <div class="settings-section-title">Appearance — Light / Dark</div>
+    <div class="theme-toggle-row">
+      <button class="theme-btn" id="theme-btn-light" onclick="setThemeMode('light')"><span class="theme-icon">☀️</span>Light</button>
+      <button class="theme-btn" id="theme-btn-dark" onclick="setThemeMode('dark')"><span class="theme-icon">🌙</span>Dark</button>
+      <button class="theme-btn" id="theme-btn-auto" onclick="setThemeMode('auto')"><span class="theme-icon">🔄</span>Auto</button>
+    </div>
+    <div class="settings-section-title">Accent color</div>
+    <div class="accent-grid" id="accent-grid"><!-- built by buildAccentGrid() --></div>
+  </div>
+
+  <div class="settings-section">
+    <div class="settings-section-title">App lock (PIN)</div>
+    <div class="pin-status-row">
+      <span class="pin-status-text">Status</span>
+      <span class="pin-status-badge" id="pin-status-badge">Off</span>
+    </div>
+    <button class="btn-pin-action" id="pin-action-btn" onclick="openPinSetup()">Set a PIN</button>
+  </div>
+
+  <div class="settings-section">
+    <div class="settings-section-title">Backup &amp; restore</div>
+    <div class="backup-row">
+      <button class="btn-backup" onclick="downloadBackup()">⬇️ Backup data</button>
+      <button class="btn-restore" onclick="document.getElementById('restore-file-input').click()">⬆️ Restore</button>
+      <input type="file" id="restore-file-input" accept=".json" style="display:none" onchange="restoreBackup(event)">
+    </div>
+    <div class="backup-note">Backup saves all your visits, patients, and settings to one file you can keep safe (email it to yourself, save to Files/Drive). If you switch phones or clear your browser, use Restore to bring everything back.</div>
+  </div>
+
+  <div class="settings-section">
+    <div class="settings-section-title">Account</div>
+    <div id="account-area"><!-- built by renderAccountArea() --></div>
+  </div>
+
+  <div class="settings-section">
+    <div class="settings-section-title">Weekly target</div>
+    <div class="setting-target-row">
+      <label>Points needed per week</label>
+      <input type="number" class="setting-target-input" id="s-weekly-target" value="30" min="1" max="200" step="0.5">
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <div class="settings-section-title">Point values per visit category</div>
+    <div id="settings-pts-rows"><!-- built by buildSettingsRows() --></div>
+  </div>
+
+  <div class="settings-section">
+    <button class="btn-save-settings" onclick="saveSettings()">✓ Save Settings</button>
+    <button class="btn-reset-settings" onclick="resetSettings()">Reset point values to defaults</button>
+  </div>
+
+  <div class="settings-section">
+    <div class="settings-section-title">Saved patients</div>
+    <div id="saved-patients-area" style="font-size:12px;color:var(--text-muted);line-height:1.5"></div>
+  </div>
+
+  <div class="settings-section">
+    <div class="settings-section-title">Share this app</div>
+    <div class="share-box">
+      <p>To send this app to a colleague as a link, upload the <strong>index.html</strong> file to one of these free hosting services — then share the link by text:</p>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <a href="https://app.netlify.com/drop" target="_blank" style="display:block;padding:10px 14px;background:var(--accent);color:white;border-radius:var(--radius-sm);text-decoration:none;font-size:13px;font-weight:700;text-align:center">🚀 Netlify Drop (drag &amp; drop)</a>
+        <a href="https://tiiny.host" target="_blank" style="display:block;padding:10px 14px;background:var(--teal);color:white;border-radius:var(--radius-sm);text-decoration:none;font-size:13px;font-weight:700;text-align:center">🌐 tiiny.host (free, instant link)</a>
+      </div>
+      <p style="font-size:12px">Anyone who opens this link signs in with their own Google account — their visits, patients, and points are kept completely separate from yours, safely in the cloud.</p>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <div class="settings-section-title">Danger zone</div>
+    <button class="btn-danger-outline" onclick="signOutOfApp()">🚪 Sign out of this account</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ─── DEFAULT POINT VALUES ─────────────────────────────────────────────────────
+const DEFAULT_POINTS = {
+  soc:2.50, roc:1.75, recert:1.75, agency_dc:1.50, discipline_dc:1.50,
+  non_oasis_soc:1.50, discipline_eval:1.25, iv_high_acuity:1.25, routine:0.90
+};
+const DEFAULT_WEEKLY_TARGET = 30;
+
+const CAT_LABELS = {
+  soc:'SOC', roc:'ROC', recert:'Recert', agency_dc:'Agency DC',
+  discipline_dc:'Discipline DC', non_oasis_soc:'Non-OASIS SOC',
+  discipline_eval:'Discipline Eval', iv_high_acuity:'IV/High Acuity', routine:'Routine'
+};
+const CAT_FULL = {
+  soc:'SOC (Start of Care)', roc:'ROC (Return to Care)', recert:'Recertification',
+  agency_dc:'Agency Discharge', discipline_dc:'Discipline Discharge',
+  non_oasis_soc:'Non-OASIS SOC', discipline_eval:'Discipline Eval',
+  iv_high_acuity:'IV / High Acuity', routine:'Routine Visit'
+};
+const TYPE_LABELS = {
+  wound:'Wound Care', labwork:'Labwork', picc:'PICC Line DSG', education:'Education',
+  catheter:'Catheter', ostomy:'Ostomy', tpn:'TPN', other:'Other'
+};
+const ACCENT_PRESETS = [
+  {id:'navy',name:'Ocean',color:'#1B4F72'},
+  {id:'teal',name:'Teal',color:'#0E6B5C'},
+  {id:'plum',name:'Plum',color:'#6C3483'},
+  {id:'rose',name:'Rose',color:'#A33A5B'},
+  {id:'forest',name:'Forest',color:'#28714C'},
+  {id:'slate',name:'Slate',color:'#3D4F5C'}
+];
+
+// ─── LIVE SETTINGS ────────────────────────────────────────────────────────────
+let catPoints = {...DEFAULT_POINTS};
+let weeklyTarget = DEFAULT_WEEKLY_TARGET;
+let themeMode = 'auto';      // 'light' | 'dark' | 'auto'
+let accentId = 'navy';
+let currentUser = null;      // {id, name, email, avatar} from Supabase auth
+let pinHash = null;          // null = no quick-lock PIN set (local only, separate from Google login)
+let appUnlocked = false;
+
+// ─── APP STATE ────────────────────────────────────────────────────────────────
+let visits=[], extraPoints=[], savedPatients=[];
+let sortMode='time', currentView='list', viewingWeekOffset=0;
+let listSelectedDate = todayStrInit();
+let calMode='month', calRefDate=new Date(), selectedCalDate=todayStrInit();
+let homeCoords={lat:35.2271,lng:-80.8431,label:'Charlotte, NC'};
+let leafletMap=null, currentLayer='satellite', tileLayer=null;
+let markersGroup=null, routeLine=null, labelLayer=null;
+let pinEntryBuffer='', pinSetupStage=null, pinSetupFirst='';
+
+function todayStrInit(){return new Date().toISOString().slice(0,10)}
+
+// ─── SUPABASE CONFIG ──────────────────────────────────────────────────────────
+// Project URL + anon public key — the anon key is meant to be embedded in
+// frontend code (it's not a secret like a password); real protection comes
+// from the Row Level Security policies on the database tables themselves.
+const SUPABASE_URL = 'https://wxhjfeorwwvruibuvgta.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind4aGpmZW9yd3d2cnVpYnV2Z3RhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5MzQ2MTEsImV4cCI6MjA5NzUxMDYxMX0.rQNUX3j7LwPD4Dhdqg5DIaLHnsCwc0bC_9ejwkJH77U';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ─── TILE CONFIG ──────────────────────────────────────────────────────────────
+const TILES = {
+  satellite:{url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',attr:'Tiles &copy; Esri'},
+  street:{url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png',attr:'&copy; OpenStreetMap contributors'},
+  hybrid:{url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',attr:'Tiles &copy; Esri',labels:'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'}
+};
+
+// ─── AUTH GATE ────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', initAuthFlow);
+
+async function initAuthFlow(){
+  setupStaticUI();
+  // Check for an existing session (returning user) or a fresh redirect back
+  // from Google with a new session.
+  const { data: { session } } = await sb.auth.getSession();
+  if(session && session.user){
+    await onSignedIn(session.user);
+  } else {
+    document.getElementById('signin-screen').style.display='flex';
+  }
+  // Keep listening in case auth state changes later (sign out elsewhere, token refresh, etc.)
+  sb.auth.onAuthStateChange(async (event, session)=>{
+    if(event==='SIGNED_IN' && session && session.user && !currentUser){
+      await onSignedIn(session.user);
+    } else if(event==='SIGNED_OUT'){
+      currentUser=null;
+      document.getElementById('app').style.display='none';
+      document.getElementById('signin-screen').style.display='flex';
+    }
+  });
+}
+
+function setupStaticUI(){
+  const d=new Date();
+  document.getElementById('today-date').textContent=d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+  document.getElementById('f-date').value=toDateStr(d);
+  document.getElementById('ex-date').value=toDateStr(d);
+  setupAddrAutocomplete();
+  setupNameAutocomplete();
+  setupEventDelegation();
+  setupLockKeypad();
+  updateDateStripLabel();
+}
+
+async function signInWithGoogle(){
+  document.getElementById('signin-loading').classList.add('show');
+  document.getElementById('signin-error').classList.remove('show');
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: 'google',
+    options:{ redirectTo: window.location.href }
+  });
+  if(error){
+    document.getElementById('signin-loading').classList.remove('show');
+    document.getElementById('signin-error').textContent='Sign-in failed: '+error.message;
+    document.getElementById('signin-error').classList.add('show');
+  }
+  // On success, the browser redirects to Google then back — execution
+  // effectively restarts and onAuthStateChange/getSession picks it up.
+}
+
+async function onSignedIn(user){
+  currentUser = {
+    id: user.id,
+    name: user.user_metadata?.full_name || user.user_metadata?.name || user.email,
+    email: user.email,
+    avatar: user.user_metadata?.avatar_url || null
+  };
+  document.getElementById('signin-screen').style.display='none';
+  document.getElementById('app-loading-overlay').style.display='flex';
+
+  await loadAllDataFromSupabase();
+  if(!visits.length && !(await hasAnyServerData())) await loadSampleData();
+
+  applyTheme();applyAccent();buildAccentGrid();buildCatDropdown();buildSettingsRows();
+  updatePtsPreview();updateDateStripLabel();
+
+  document.getElementById('app-loading-overlay').style.display='none';
+  document.getElementById('app').style.display='flex';
+
+  loadPinFromLocal();
+  if(pinHash){ showLockScreen(); } else { appUnlocked=true; }
+  renderAll();
+}
+
+async function hasAnyServerData(){
+  const { count } = await sb.from('visits').select('*',{count:'exact',head:true}).eq('user_id',currentUser.id);
+  return (count||0) > 0;
+}
+
+// ─── EVENT DELEGATION (fixes "all visits react to one click" bug) ────────────
+function setupEventDelegation(){
+  document.getElementById('visit-list-container').addEventListener('click', handleListClick);
+}
+function handleListClick(e){
+  const btn = e.target.closest('[data-action]');
+  if(!btn) return;
+  const action = btn.getAttribute('data-action');
+  const id = parseInt(btn.getAttribute('data-id'));
+  if(!id) return;
+  if(action==='done') markDone(id);
+  else if(action==='skip') markSkip(id);
+  else if(action==='nav') navTo(id);
+  else if(action==='edit') openEditPanel(id);
+  else if(action==='delete') deleteVisit(id);
+}
+
+// ─── DATE HELPERS ─────────────────────────────────────────────────────────────
+function toDateStr(d){return d.toISOString().slice(0,10)}
+function todayStr(){return toDateStr(new Date())}
+function getWeekBounds(off){
+  const now=new Date(),day=now.getDay();
+  const mon=new Date(now);
+  mon.setDate(now.getDate()-(day===0?6:day-1)+off*7);mon.setHours(0,0,0,0);
+  const sun=new Date(mon);sun.setDate(mon.getDate()+6);sun.setHours(23,59,59,999);
+  return{monday:mon,sunday:sun};
+}
+function getDayLabel(ds){
+  return new Date(ds+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+}
+function escAttr(s){
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ─── SUPABASE DATA LAYER ───────────────────────────────────────────────────────
+// All functions below replace what used to be localStorage read/write.
+// Every query is automatically scoped to the signed-in user by Postgres
+// Row Level Security — we still filter by user_id here too for clarity
+// and so the same queries would be safe even if RLS were ever misconfigured.
+
+async function loadAllDataFromSupabase(){
+  const uid = currentUser.id;
+
+  const [visitsRes, extraRes, patientsRes, settingsRes] = await Promise.all([
+    sb.from('visits').select('*').eq('user_id',uid).order('id',{ascending:true}),
+    sb.from('extra_points').select('*').eq('user_id',uid).order('id',{ascending:true}),
+    sb.from('saved_patients').select('*').eq('user_id',uid).order('name',{ascending:true}),
+    sb.from('user_settings').select('*').eq('user_id',uid).maybeSingle()
+  ]);
+
+  visits = (visitsRes.data||[]).map(r=>({
+    id:r.id, num:r.num, name:r.name, addr:r.addr, date:r.date, time:r.time,
+    dur:r.dur, type:r.type, cat:r.cat, notes:r.notes||'', status:r.status,
+    coords: (r.lat!=null && r.lng!=null) ? {lat:r.lat,lng:r.lng} : null
+  }));
+  extraPoints = (extraRes.data||[]).map(r=>({id:r.id,label:r.label,date:r.date,pts:Number(r.pts)}));
+  savedPatients = (patientsRes.data||[]).map(r=>({
+    name:r.name, addr:r.addr, coords:(r.lat!=null&&r.lng!=null)?{lat:r.lat,lng:r.lng}:null
+  }));
+
+  if(settingsRes.data){
+    const s=settingsRes.data;
+    catPoints = {...DEFAULT_POINTS, ...(s.cat_points||{})};
+    weeklyTarget = Number(s.weekly_target)||DEFAULT_WEEKLY_TARGET;
+    homeCoords = {lat:s.home_lat, lng:s.home_lng, label:s.home_label};
+    themeMode = s.theme_mode||'auto';
+    accentId = s.accent_id||'navy';
+  } else {
+    // First-ever login — create their settings row with defaults
+    await sb.from('user_settings').insert({
+      user_id:uid, cat_points:DEFAULT_POINTS, weekly_target:DEFAULT_WEEKLY_TARGET,
+      home_label:homeCoords.label, home_lat:homeCoords.lat, home_lng:homeCoords.lng,
+      theme_mode:'auto', accent_id:'navy'
+    });
+  }
+  document.getElementById('home-addr').value=homeCoords.label;
+}
+
+async function saveUserSettings(){
+  if(!currentUser) return;
+  await sb.from('user_settings').upsert({
+    user_id: currentUser.id,
+    cat_points: catPoints,
+    weekly_target: weeklyTarget,
+    home_label: homeCoords.label,
+    home_lat: homeCoords.lat,
+    home_lng: homeCoords.lng,
+    theme_mode: themeMode,
+    accent_id: accentId,
+    updated_at: new Date().toISOString()
+  });
+}
+
+// PIN is intentionally kept in plain localStorage, NOT in Supabase — it's a
+// per-device quick-lock (like a phone passcode), not part of the account.
+function savePinToLocal(){
+  try{ localStorage.setItem('roundlyPinHash_'+(currentUser?.id||''), pinHash||''); }catch(e){}
+}
+function loadPinFromLocal(){
+  try{
+    const ph=localStorage.getItem('roundlyPinHash_'+(currentUser?.id||''));
+    pinHash = ph || null;
+  }catch(e){ pinHash=null; }
+}
+
+// ─── THEME (light/dark) ────────────────────────────────────────────────────────
+function setThemeMode(mode){themeMode=mode;saveUserSettings();applyTheme();}
+function applyTheme(){
+  let effective=themeMode;
+  if(themeMode==='auto') effective=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';
+  if(effective==='dark') document.documentElement.setAttribute('data-theme','dark');
+  else document.documentElement.removeAttribute('data-theme');
+  document.querySelectorAll('.theme-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('theme-btn-'+themeMode)?.classList.add('active');
+  if(leafletMap) setTimeout(()=>leafletMap.invalidateSize(),100);
+}
+window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',()=>{
+  if(themeMode==='auto') applyTheme();
+});
+
+// ─── ACCENT COLOR (personalization) ───────────────────────────────────────────
+function applyAccent(){
+  document.documentElement.setAttribute('data-accent',accentId);
+  const preset=ACCENT_PRESETS.find(a=>a.id===accentId);
+  if(preset){
+    document.querySelector('meta[name="theme-color"]').setAttribute('content',preset.color);
+  }
+}
+function buildAccentGrid(){
+  const grid=document.getElementById('accent-grid');
+  grid.innerHTML=ACCENT_PRESETS.map(a=>`
+    <button class="accent-swatch ${a.id===accentId?'active':''}" onclick="chooseAccent('${a.id}')">
+      <div class="accent-dot" style="background:${a.color}"></div>
+      <span class="accent-name">${a.name}</span>
+    </button>`).join('');
+}
+function chooseAccent(id){
+  accentId=id;saveUserSettings();applyAccent();buildAccentGrid();
+  showToast('🎨 Theme updated');
+}
+
+// ─── PIN LOCK ─────────────────────────────────────────────────────────────────
+function simpleHash(str){
+  // Lightweight non-cryptographic hash — sufficient for deterring casual
+  // access to a lost/borrowed phone. NOT meant as real encryption.
+  let h=0;
+  for(let i=0;i<str.length;i++){h=(h<<5)-h+str.charCodeAt(i);h|=0;}
+  return 'h'+h.toString(36);
+}
+function setupLockKeypad(){
+  document.getElementById('lock-keypad').addEventListener('click',e=>{
+    const btn=e.target.closest('.lock-key');
+    if(!btn) return;
+    const key=btn.getAttribute('data-key');
+    if(key==='clear'){pinEntryBuffer='';updateLockDots();return;}
+    if(key==='back'){pinEntryBuffer=pinEntryBuffer.slice(0,-1);updateLockDots();return;}
+    if(pinEntryBuffer.length>=4) return;
+    pinEntryBuffer+=key;
+    updateLockDots();
+    if(pinEntryBuffer.length===4) setTimeout(handlePinComplete,150);
+  });
+}
+function updateLockDots(){
+  const dots=document.querySelectorAll('#lock-dots .lock-dot');
+  dots.forEach((d,i)=>d.classList.toggle('filled',i<pinEntryBuffer.length));
+}
+function handlePinComplete(){
+  if(pinSetupStage==='first'){
+    pinSetupFirst=pinEntryBuffer;
+    pinEntryBuffer='';updateLockDots();
+    pinSetupStage='confirm';
+    document.getElementById('lock-sub').textContent='Confirm your new PIN';
+    return;
+  }
+  if(pinSetupStage==='confirm'){
+    if(pinEntryBuffer===pinSetupFirst){
+      pinHash=simpleHash(pinEntryBuffer);
+      savePinToLocal();
+      pinSetupStage=null;pinEntryBuffer='';
+      hideLockScreen();
+      buildSettingsRows();
+      showToast('🔒 PIN set successfully');
+    } else {
+      document.getElementById('lock-error').textContent="PINs didn't match — try again";
+      pinSetupStage='first';pinEntryBuffer='';pinSetupFirst='';
+      document.getElementById('lock-sub').textContent='Enter a new 4-digit PIN';
+      updateLockDots();
+      setTimeout(()=>document.getElementById('lock-error').textContent='',2000);
+    }
+    return;
+  }
+  // Normal unlock attempt
+  if(simpleHash(pinEntryBuffer)===pinHash){
+    appUnlocked=true;
+    hideLockScreen();
+  } else {
+    document.getElementById('lock-error').textContent='Incorrect PIN';
+    pinEntryBuffer='';updateLockDots();
+    setTimeout(()=>document.getElementById('lock-error').textContent='',2000);
+  }
+}
+function showLockScreen(){
+  document.getElementById('lock-screen').classList.add('show');
+  document.getElementById('lock-sub').textContent='Enter your PIN to continue';
+  document.getElementById('lock-error').textContent='';
+  pinEntryBuffer='';pinSetupStage=null;updateLockDots();
+}
+function hideLockScreen(){
+  document.getElementById('lock-screen').classList.remove('show');
+}
+function openPinSetup(){
+  closeAllPanels();
+  if(pinHash){
+    // Already set — offer to remove or change
+    if(confirm('A PIN is already set. Tap OK to change it, or Cancel to remove it.')){
+      pinSetupStage='first';pinEntryBuffer='';
+      document.getElementById('lock-sub').textContent='Enter a new 4-digit PIN';
+      showLockScreen();
+    } else {
+      pinHash=null;savePinToLocal();buildSettingsRows();showToast('PIN removed');
+    }
+    return;
+  }
+  pinSetupStage='first';pinEntryBuffer='';
+  document.getElementById('lock-sub').textContent='Enter a new 4-digit PIN';
+  showLockScreen();
+}
+function forgotPin(){
+  // This PIN is just a local quick-lock on this device — it is NOT your
+  // Google account password, so "forgetting" it just means signing out of
+  // this device. Your data is safe in your Google-linked account and will
+  // be there again next time you sign in.
+  if(confirm('Forgot your PIN? You can sign out instead — your data is safely stored in your Google account and will be there when you sign back in. Sign out now?')){
+    pinHash=null;savePinToLocal();
+    sb.auth.signOut();
+    hideLockScreen();
+    location.reload();
+  }
+}
+
+// ─── BACKUP / RESTORE ─────────────────────────────────────────────────────────
+// Note: with Supabase, your data already lives safely in the cloud tied to
+// your Google account — you don't NEED a manual backup to avoid losing data
+// on this device. This remains useful as a personal export/portability
+// option (e.g. to keep an offline copy, or move data into a fresh account).
+function downloadBackup(){
+  const backup={
+    _roundlyBackupVersion:2,
+    exportedAt:new Date().toISOString(),
+    account:currentUser?.email||null,
+    visits,extraPoints,savedPatients,
+    homeCoords,catPoints,weeklyTarget,themeMode,accentId
+  };
+  const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`roundly_backup_${todayStr()}.json`;
+  a.click();
+  showToast('⬇️ Backup downloaded');
+}
+async function restoreBackup(evt){
+  const file=evt.target.files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=async ()=>{
+    try{
+      const data=JSON.parse(reader.result);
+      if(!data || !Array.isArray(data.visits)){
+        showToast('⚠️ That file doesn\'t look like a Roundly backup');
+        return;
+      }
+      if(!confirm('This will ADD the visits/patients from this backup into your current account (it will not delete what you already have). Continue?')) return;
+
+      const uid=currentUser.id;
+      // Re-insert visits under the current account, letting the DB assign new ids
+      if(data.visits.length){
+        const rows=data.visits.map(v=>({
+          user_id:uid, num:v.num||1, name:v.name, addr:v.addr, date:v.date, time:v.time,
+          dur:v.dur, type:v.type, cat:v.cat, notes:v.notes||'', status:v.status||'pending',
+          lat:v.coords?.lat??null, lng:v.coords?.lng??null
+        }));
+        await sb.from('visits').insert(rows);
+      }
+      if(data.extraPoints?.length){
+        const rows=data.extraPoints.map(e=>({user_id:uid,label:e.label,date:e.date,pts:e.pts}));
+        await sb.from('extra_points').insert(rows);
+      }
+      if(data.savedPatients?.length){
+        for(const p of data.savedPatients){
+          await sb.from('saved_patients').upsert({
+            user_id:uid, name:p.name, addr:p.addr,
+            lat:p.coords?.lat??null, lng:p.coords?.lng??null
+          },{onConflict:'user_id,name'});
+        }
+      }
+      await loadAllDataFromSupabase();
+      closeAllPanels();renderAll();
+      showToast('✓ Backup data merged into your account');
+    }catch(e){
+      showToast('⚠️ Could not read that file — make sure it\'s a Roundly backup .json');
+    }
+  };
+  reader.readAsText(file);
+  evt.target.value='';
+}
+
+// ─── ACCOUNT AREA (real authenticated Google account) ─────────────────────────
+function renderAccountArea(){
+  const el=document.getElementById('account-area');
+  if(!currentUser){ el.innerHTML=''; return; }
+  const initial=(currentUser.name||currentUser.email||'?').charAt(0).toUpperCase();
+  const avatarHtml = currentUser.avatar
+    ? `<img src="${escAttr(currentUser.avatar)}" style="width:32px;height:32px;border-radius:50%;flex-shrink:0">`
+    : `<div class="signed-in-avatar">${initial}</div>`;
+  el.innerHTML=`
+    <div class="signed-in-box">
+      ${avatarHtml}
+      <div class="signed-in-info">
+        <div class="signed-in-name">${escAttr(currentUser.name||'Signed in')}</div>
+        <div class="signed-in-email">${escAttr(currentUser.email||'')}</div>
+      </div>
+      <button class="btn-signout" onclick="signOutOfApp()">Sign out</button>
+    </div>
+    <div class="sync-note">✓ Signed in with Google. Your visits, patients, and settings are saved to your account and stay private — no one else can see them, and they'll be here if you sign in from a different device.</div>`;
+}
+async function signOutOfApp(){
+  if(!confirm('Sign out of Roundly?')) return;
+  await sb.auth.signOut();
+  pinHash=null;
+  visits=[];extraPoints=[];savedPatients=[];
+  closeAllPanels();
+  document.getElementById('app').style.display='none';
+  document.getElementById('signin-screen').style.display='flex';
+  showToast('Signed out');
+}
+
+// ─── SETTINGS PANEL ───────────────────────────────────────────────────────────
+function buildSettingsRows(){
+  document.getElementById('s-weekly-target').value=weeklyTarget;
+  const container=document.getElementById('settings-pts-rows');
+  container.innerHTML=Object.keys(DEFAULT_POINTS).map(k=>`
+    <div class="setting-row">
+      <span class="setting-name">${CAT_FULL[k]}</span>
+      <input type="number" class="setting-pts-input" id="spt-${k}" value="${(catPoints[k]||DEFAULT_POINTS[k]).toFixed(2)}" min="0" max="10" step="0.05">
+    </div>`).join('');
+  renderAccountArea();
+  renderSavedPatientsArea();
+  const badge=document.getElementById('pin-status-badge');
+  const btn=document.getElementById('pin-action-btn');
+  if(pinHash){badge.textContent='On';badge.className='pin-status-badge pin-on';btn.textContent='Change / Remove PIN';}
+  else{badge.textContent='Off';badge.className='pin-status-badge pin-off';btn.textContent='Set a PIN';}
+}
+function renderSavedPatientsArea(){
+  const el=document.getElementById('saved-patients-area');
+  if(!savedPatients.length){
+    el.innerHTML='No saved patients yet. Patients are saved automatically the first time you add a visit for them.';
+    return;
+  }
+  el.innerHTML=`<div style="display:flex;flex-direction:column;gap:6px">`+
+    savedPatients.map(p=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--gray-100)">
+        <div style="min-width:0">
+          <div style="font-size:13px;color:var(--text);font-weight:500">${escAttr(p.name)}</div>
+          <div style="font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px">${escAttr(p.addr)}</div>
+        </div>
+        <button data-remove-patient="${escAttr(p.name)}" style="background:none;border:none;color:var(--red);font-size:13px;cursor:pointer;padding:4px">✕</button>
+      </div>`).join('')+`</div>`;
+  el.querySelectorAll('[data-remove-patient]').forEach(btn=>{
+    btn.addEventListener('click',()=>removeSavedPatient(btn.getAttribute('data-remove-patient')));
+  });
+}
+async function removeSavedPatient(name){
+  savedPatients=savedPatients.filter(p=>p.name!==name);
+  await sb.from('saved_patients').delete().eq('user_id',currentUser.id).eq('name',name);
+  renderSavedPatientsArea();
+}
+async function saveSettings(){
+  const wt=parseFloat(document.getElementById('s-weekly-target').value);
+  if(!isNaN(wt)&&wt>0) weeklyTarget=wt;
+  Object.keys(DEFAULT_POINTS).forEach(k=>{
+    const v=parseFloat(document.getElementById('spt-'+k)?.value);
+    if(!isNaN(v)&&v>=0) catPoints[k]=v;
+  });
+  await saveUserSettings();
+  buildCatDropdown();closeAllPanels();renderAll();showToast('✓ Settings saved!');
+}
+async function resetSettings(){
+  catPoints={...DEFAULT_POINTS};weeklyTarget=DEFAULT_WEEKLY_TARGET;
+  await saveUserSettings();
+  buildSettingsRows();showToast('Reset to defaults');
+}
+function openSettings(){
+  buildSettingsRows();
+  document.getElementById('settings-panel').classList.add('open');
+  document.getElementById('overlay').classList.add('open');
+}
+
+// ─── CATEGORY DROPDOWN ────────────────────────────────────────────────────────
+function buildCatDropdown(){
+  const sel=document.getElementById('f-cat');
+  const cur=sel.value;
+  sel.innerHTML=Object.keys(catPoints).map(k=>
+    `<option value="${k}">${CAT_FULL[k]} — ${catPoints[k].toFixed(2)} pts</option>`).join('');
+  if(cur) sel.value=cur;
+  updatePtsPreview();
+}
+function getPoints(v){return catPoints[v.cat]||0}
+function updatePtsPreview(){
+  const cat=document.getElementById('f-cat').value;
+  document.getElementById('pts-preview-val').textContent=(catPoints[cat]||0).toFixed(2);
+}
+
+// ─── SAMPLE DATA (only inserted for brand-new accounts with zero rows) ────────
+async function loadSampleData(){
+  const td=todayStr();
+  const samples=[
+    {name:'Mary Johnson',addr:'3210 Selwyn Ave, Charlotte, NC 28209',time:'08:00',dur:45,type:'wound',cat:'soc',notes:'Left leg wound assessment',lat:35.197,lng:-80.844},
+    {name:'Robert Davis',addr:'7812 Ballantyne Commons Pkwy, Charlotte, NC 28277',time:'09:30',dur:30,type:'labwork',cat:'recert',notes:'CBC draw',lat:35.062,lng:-80.874},
+    {name:'Helen Carter',addr:'1540 E 5th St, Charlotte, NC 28204',time:'11:00',dur:60,type:'picc',cat:'routine',notes:'PICC dressing change',lat:35.224,lng:-80.828},
+    {name:"James O'Wilson",addr:'9431 University City Blvd, Charlotte, NC 28213',time:'13:00',dur:30,type:'education',cat:'roc',notes:'Insulin training',lat:35.313,lng:-80.750},
+  ];
+  const uid=currentUser.id;
+  const rows=samples.map((s,i)=>({
+    user_id:uid, num:i+1, name:s.name, addr:s.addr, date:td, time:s.time, dur:s.dur,
+    type:s.type, cat:s.cat, notes:s.notes, status:'pending', lat:s.lat, lng:s.lng
+  }));
+  await sb.from('visits').insert(rows);
+  for(const s of samples){
+    await sb.from('saved_patients').upsert({
+      user_id:uid, name:s.name, addr:s.addr, lat:s.lat, lng:s.lng
+    },{onConflict:'user_id,name'});
+  }
+  await loadAllDataFromSupabase();
+}
+
+// ─── HAVERSINE ────────────────────────────────────────────────────────────────
+function haversine(c1,c2){
+  const R=3958.8,toR=Math.PI/180;
+  const dLat=(c2.lat-c1.lat)*toR,dLng=(c2.lng-c1.lng)*toR;
+  const a=Math.sin(dLat/2)**2+Math.cos(c1.lat*toR)*Math.cos(c2.lat*toR)*Math.sin(dLng/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+// ─── SAVED PATIENTS (autocomplete for repeat visits) ──────────────────────────
+async function upsertSavedPatient(name,addr,coords){
+  if(!name||!addr) return;
+  const existing=savedPatients.find(p=>p.name.toLowerCase()===name.toLowerCase());
+  if(existing){existing.addr=addr;existing.coords=coords;}
+  else savedPatients.push({name,addr,coords});
+  await sb.from('saved_patients').upsert({
+    user_id:currentUser.id, name, addr,
+    lat:coords?.lat??null, lng:coords?.lng??null
+  },{onConflict:'user_id,name'});
+}
+function setupNameAutocomplete(){
+  const inp=document.getElementById('f-name');
+  const dd=document.getElementById('name-dropdown');
+  inp.addEventListener('input',()=>{
+    const q=inp.value.trim().toLowerCase();
+    if(q.length<2){dd.classList.remove('open');dd.innerHTML='';return;}
+    const matches=savedPatients.filter(p=>p.name.toLowerCase().includes(q));
+    if(!matches.length){dd.classList.remove('open');dd.innerHTML='';return;}
+    dd.innerHTML=`<div class="addr-group-label">Saved patients</div>`+matches.map((p,i)=>
+      `<div class="addr-option addr-option-saved" data-idx="${i}">
+        <strong>${escAttr(p.name)}</strong>
+        <div class="opt-sub">📍 ${escAttr(p.addr)}</div>
+      </div>`).join('');
+    dd.classList.add('open');dd._matches=matches;
+  });
+  dd.addEventListener('click',e=>{
+    const opt=e.target.closest('.addr-option');
+    if(!opt) return;
+    const idx=parseInt(opt.getAttribute('data-idx'));
+    const p=dd._matches[idx];
+    if(!p) return;
+    document.getElementById('f-name').value=p.name;
+    document.getElementById('f-addr').value=p.addr;
+    if(p.coords){window._pendingCoords=p.coords;showGeoConfirm(p.addr);}
+    dd.classList.remove('open');
+  });
+  document.addEventListener('click',e=>{
+    if(!inp.contains(e.target)&&!dd.contains(e.target)) dd.classList.remove('open');
+  });
+}
+
+// ─── ADDRESS AUTOCOMPLETE + VERIFICATION ──────────────────────────────────────
+function setupAddrAutocomplete(){
+  setupOneAddrField('f-addr','addr-dropdown',false);
+  setupOneAddrField('home-addr','home-dropdown',true);
+}
+function setupOneAddrField(inputId,dropdownId,isHome){
+  const inp=document.getElementById(inputId);
+  const dd=document.getElementById(dropdownId);
+  let timer=null;
+  inp.addEventListener('input',()=>{
+    if(!isHome){
+      document.getElementById('geo-confirm-box').classList.remove('show');
+      document.getElementById('geo-warn-box').classList.remove('show');
+      window._pendingCoords=null;
+    } else {
+      document.getElementById('home-confirmed').classList.remove('show');
+      window._pendingHomeCoords=null;
+    }
+    const q=inp.value.trim();
+    if(q.length<4){dd.classList.remove('open');dd.innerHTML='';return;}
+    clearTimeout(timer);
+    timer=setTimeout(()=>fetchSuggestions(q,dd,inputId,isHome),550);
+  });
+  document.addEventListener('click',e=>{
+    if(!inp.contains(e.target)&&!dd.contains(e.target)) dd.classList.remove('open');
+  });
+}
+async function fetchSuggestions(q,dd,inputId,isHome){
+  dd.innerHTML='<div class="addr-searching">Searching…</div>';dd.classList.add('open');
+  try{
+    let results = await photonSearch(q);
+
+    // FALLBACK: if the raw query comes back empty, try a comma-inserted
+    // version — helps in edge cases with ambiguous multi-word street names.
+    if(!results.length){
+      const commaGuess = guessCommaPlacement(q);
+      if(commaGuess !== q){
+        results = await photonSearch(commaGuess);
+      }
+    }
+
+    if(!results.length){
+      dd.innerHTML='<div class="addr-searching">No matches found. Try format: Street, City, State (e.g. "123 Main St, Charlotte, NC")</div>';
+      return;
+    }
+    dd.innerHTML=results.map((res,i)=>
+      `<div class="addr-option" data-idx="${i}">${escAttr(res.display_name)}</div>`).join('');
+    dd._results=results;
+    dd.onclick=(e)=>{
+      const opt=e.target.closest('.addr-option');
+      if(!opt) return;
+      const idx=parseInt(opt.getAttribute('data-idx'));
+      const res=dd._results[idx];
+      selectAddr(res,inputId,dd,isHome);
+    };
+  }catch(e){
+    dd.innerHTML='<div class="addr-searching">Search unavailable — check your connection and try again</div>';
+    setTimeout(()=>dd.classList.remove('open'),2200);
+  }
+}
+
+// ─── GEOCODING: Photon (by Komoot) ────────────────────────────────────────────
+// Switched from Nominatim to Photon. Nominatim's own usage policy explicitly
+// FORBIDS search-as-you-type/autocomplete use on the client side — exactly
+// what this app needs — and apps that do it anyway get silently rate-limited
+// or blocked, which is why searches stopped returning results even for
+// well-formed addresses. Photon is built by the same OpenStreetMap community
+// specifically to support autocomplete, requires no API key, and uses the
+// same underlying map data, so address quality stays the same.
+async function photonSearch(q){
+  // Bias results toward the home base location for more relevant matches,
+  // without hard-restricting to that area (lat/lon act as a soft preference).
+  const lat = homeCoords?.lat ?? 35.2271;
+  const lon = homeCoords?.lng ?? -80.8431;
+  const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=7&lat=${lat}&lon=${lon}`;
+  const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
+  const geojson = await r.json();
+  const features = geojson?.features || [];
+  // Normalize Photon's GeoJSON shape into the same {lat, lon, display_name}
+  // shape the rest of the app already expects from the old Nominatim calls.
+  return features.map(f => {
+    const p = f.properties || {};
+    const coords = f.geometry?.coordinates || [null, null]; // [lon, lat]
+    const parts = [
+      [p.housenumber, p.street].filter(Boolean).join(' ') || p.name,
+      p.city, p.state, p.postcode
+    ].filter(Boolean);
+    return {
+      lat: coords[1],
+      lon: coords[0],
+      display_name: parts.join(', ')
+    };
+  }).filter(r => r.lat != null && r.lon != null);
+}
+
+// Heuristic: turns "123 Main St Charlotte NC 28202" into
+// "123 Main St, Charlotte, NC 28202" by inserting a comma before the
+// first all-caps 2-letter state code (if present) and before that word
+// if a city-like word sits just in front of it. Falls back to inserting
+// a comma before the last 1-2 words if no state code is found, which
+// covers "123 Main St Charlotte" -> "123 Main St, Charlotte".
+function guessCommaPlacement(q){
+  if(q.includes(',')) return q; // already has structure, don't touch it
+  const words = q.trim().split(/\s+/);
+  if(words.length < 3) return q;
+
+  const stateIdx = words.findIndex(w => /^[A-Z]{2}$/.test(w));
+  if(stateIdx > 1){
+    const cityStart = Math.max(1, stateIdx-1);
+    return words.slice(0,cityStart).join(' ') + ', ' + words.slice(cityStart).join(' ');
+  }
+  return words.slice(0,-1).join(' ') + ', ' + words.slice(-1).join(' ');
+}
+function selectAddr(res,inputId,dd,isHome){
+  const display=res.display_name;
+  const lat=parseFloat(res.lat), lng=parseFloat(res.lon);
+  document.getElementById(inputId).value=display;
+  dd.classList.remove('open');
+  if(isHome){
+    window._pendingHomeCoords={lat,lng};
+    document.getElementById('home-confirmed-text').textContent=`Pinned: ${display}`;
+    document.getElementById('home-confirmed').classList.add('show');
+  } else {
+    window._pendingCoords={lat,lng};
+    showGeoConfirm(display);
+  }
+}
+function showGeoConfirm(display){
+  document.getElementById('geo-warn-box').classList.remove('show');
+  const ok=document.getElementById('geo-confirm-box');
+  ok.textContent=`✓ Location pinned: ${display}`;
+  ok.classList.add('show');
+}
+
+// ─── HOME BASE ────────────────────────────────────────────────────────────────
+async function setHomeBase(){
+  const addr=document.getElementById('home-addr').value.trim();
+  if(!addr) return;
+  if(window._pendingHomeCoords){
+    homeCoords={...window._pendingHomeCoords,label:addr};
+    window._pendingHomeCoords=null;
+  } else {
+    try{
+      let d = await photonSearch(addr);
+      if(!d.length){
+        const commaGuess = guessCommaPlacement(addr);
+        if(commaGuess !== addr) d = await photonSearch(commaGuess);
+      }
+      if(d.length){
+        homeCoords={lat:parseFloat(d[0].lat),lng:parseFloat(d[0].lon),label:addr};
+        document.getElementById('home-confirmed-text').textContent=`Matched to: ${d[0].display_name}`;
+        document.getElementById('home-confirmed').classList.add('show');
+      } else {
+        showToast('⚠️ Could not verify that address — try format: Street, City, State');
+        return;
+      }
+    }catch(e){
+      showToast('⚠️ Search unavailable — check your connection and try again');
+      return;
+    }
+  }
+  await saveUserSettings();showToast('🏠 Home base updated');renderAll();
+  if(leafletMap)leafletMap.setView([homeCoords.lat,homeCoords.lng],11);
+}
+
+// ─── ADD / EDIT VISIT ─────────────────────────────────────────────────────────
+async function submitVisitForm(){
+  const editId=document.getElementById('f-edit-id').value;
+  const name=document.getElementById('f-name').value.trim();
+  const addr=document.getElementById('f-addr').value.trim();
+  if(!name){showToast('Patient name is required');return;}
+  if(!addr){showToast('Address is required');return;}
+  const date=document.getElementById('f-date').value||todayStr();
+  const time=document.getElementById('f-time').value;
+  const dur=parseInt(document.getElementById('f-dur').value)||30;
+  const type=document.getElementById('f-type').value;
+  const cat=document.getElementById('f-cat').value;
+  const notes=document.getElementById('f-notes').value.trim();
+  const pts=(catPoints[cat]||0).toFixed(2);
+
+  let coords=window._pendingCoords||null;
+  window._pendingCoords=null;
+
+  if(!coords){
+    try{
+      let d = await photonSearch(addr);
+      if(!d.length){
+        const commaGuess = guessCommaPlacement(addr);
+        if(commaGuess !== addr) d = await photonSearch(commaGuess);
+      }
+      if(d.length) coords={lat:parseFloat(d[0].lat),lng:parseFloat(d[0].lon)};
+    }catch(e){}
+  }
+  if(!coords){
+    document.getElementById('geo-warn-box').classList.add('show');
+    document.getElementById('geo-confirm-box').classList.remove('show');
+    showToast('⚠️ Could not locate that address — visit saved without map pin');
+  }
+
+  if(editId){
+    const v=visits.find(v=>v.id===parseInt(editId));
+    if(!v){showToast('Visit not found');closeAllPanels();return;}
+    const finalCoords=coords||v.coords;
+    Object.assign(v,{name,addr,date,time,dur,type,cat,notes,coords:finalCoords});
+    await sb.from('visits').update({
+      name,addr,date,time,dur,type,cat,notes,
+      lat:finalCoords?.lat??null, lng:finalCoords?.lng??null
+    }).eq('id',v.id).eq('user_id',currentUser.id);
+    await upsertSavedPatient(name,addr,finalCoords);
+    resetForm();closeAllPanels();
+    showToast(`✓ ${name} updated — ${pts} pts`);renderAll();
+  } else {
+    const num=visits.filter(x=>x.date===date).length+1;
+    const { data, error } = await sb.from('visits').insert({
+      user_id:currentUser.id, num, name, addr, date, time, dur, type, cat, notes,
+      status:'pending', lat:coords?.lat??null, lng:coords?.lng??null
+    }).select().single();
+    if(error || !data){
+      showToast('⚠️ Could not save visit — check your connection and try again');
+      return;
+    }
+    visits.push({
+      id:data.id, num:data.num, name:data.name, addr:data.addr, date:data.date,
+      time:data.time, dur:data.dur, type:data.type, cat:data.cat, notes:data.notes||'',
+      status:data.status, coords:(data.lat!=null&&data.lng!=null)?{lat:data.lat,lng:data.lng}:null
+    });
+    await upsertSavedPatient(name,addr,coords);
+    resetForm();closeAllPanels();
+    showToast(`✓ ${name} added — ${pts} pts`);renderAll();
+  }
+}
+function resetForm(){
+  ['f-name','f-addr','f-notes','f-edit-id'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('addr-dropdown').classList.remove('open');
+  document.getElementById('name-dropdown').classList.remove('open');
+  document.getElementById('geo-confirm-box').classList.remove('show');
+  document.getElementById('geo-warn-box').classList.remove('show');
+  window._pendingCoords=null;
+}
+function openEditPanel(id){
+  const v=visits.find(v=>v.id===id);
+  if(!v) return;
+  document.getElementById('f-edit-id').value=v.id;
+  document.getElementById('f-name').value=v.name;
+  document.getElementById('f-addr').value=v.addr;
+  document.getElementById('f-date').value=v.date;
+  document.getElementById('f-time').value=v.time;
+  document.getElementById('f-dur').value=v.dur;
+  document.getElementById('f-type').value=v.type;
+  document.getElementById('f-cat').value=v.cat;
+  document.getElementById('f-notes').value=v.notes||'';
+  document.getElementById('geo-confirm-box').classList.remove('show');
+  document.getElementById('geo-warn-box').classList.remove('show');
+  window._pendingCoords=v.coords||null;
+  updatePtsPreview();
+  document.getElementById('panel-title-text').textContent='Edit Patient Visit';
+  document.getElementById('f-submit-btn').textContent='✓ Save Changes';
+  document.getElementById('f-delete-btn').style.display='block';
+  document.getElementById('f-delete-btn').setAttribute('data-id',v.id);
+  document.getElementById('add-panel').classList.add('open');
+  document.getElementById('overlay').classList.add('open');
+}
+function deleteFromEditPanel(){
+  const id=parseInt(document.getElementById('f-delete-btn').getAttribute('data-id'));
+  if(!id) return;
+  deleteVisit(id);closeAllPanels();showToast('🗑️ Visit deleted');
+}
+
+// ─── VISIT ACTIONS ────────────────────────────────────────────────────────────
+async function markDone(id){
+  const v=visits.find(v=>v.id===id);
+  if(!v) return;
+  v.status=(v.status==='done')?'pending':'done';
+  renderAll();
+  await sb.from('visits').update({status:v.status}).eq('id',id).eq('user_id',currentUser.id);
+}
+async function markSkip(id){
+  const v=visits.find(v=>v.id===id);
+  if(!v) return;
+  v.status=(v.status==='skipped')?'pending':'skipped';
+  renderAll();
+  await sb.from('visits').update({status:v.status}).eq('id',id).eq('user_id',currentUser.id);
+}
+async function deleteVisit(id){
+  const v=visits.find(x=>x.id===id);
+  if(!v) return;
+  const date=v.date;
+  visits=visits.filter(v=>v.id!==id);
+  visits.filter(x=>x.date===date).forEach((v,i)=>v.num=i+1);
+  renderAll();
+  await sb.from('visits').delete().eq('id',id).eq('user_id',currentUser.id);
+  // Renumber remaining same-day visits server-side too, so ordering stays correct
+  const sameDay=visits.filter(x=>x.date===date);
+  for(const sv of sameDay){
+    await sb.from('visits').update({num:sv.num}).eq('id',sv.id).eq('user_id',currentUser.id);
+  }
+}
+function navTo(id){
+  const v=visits.find(v=>v.id===id);
+  if(!v) return;
+  window.open('https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(v.addr)+'&travelmode=driving','_blank');
+}
+
+// ─── EXTRA PRODUCTIVITY POINTS ─────────────────────────────────────────────────
+function openExtraPanel(){
+  document.getElementById('ex-label').value='';
+  document.getElementById('ex-date').value=listSelectedDate;
+  document.getElementById('ex-pts').value='0.5';
+  document.getElementById('extra-panel').classList.add('open');
+  document.getElementById('overlay').classList.add('open');
+}
+async function addExtraPoints(){
+  const label=document.getElementById('ex-label').value.trim();
+  const date=document.getElementById('ex-date').value||todayStr();
+  const pts=parseFloat(document.getElementById('ex-pts').value);
+  if(!label){showToast('Please describe what this is for');return;}
+  if(isNaN(pts)||pts<0){showToast('Enter a valid point value');return;}
+  const { data, error } = await sb.from('extra_points').insert({
+    user_id:currentUser.id, label, date, pts
+  }).select().single();
+  if(error || !data){showToast('⚠️ Could not save — check your connection');return;}
+  extraPoints.push({id:data.id,label:data.label,date:data.date,pts:Number(data.pts)});
+  closeAllPanels();showToast(`⭐ Added ${pts} pts — ${label}`);renderAll();
+}
+async function deleteExtraPoint(id){
+  extraPoints=extraPoints.filter(e=>e.id!==id);
+  renderAll();
+  await sb.from('extra_points').delete().eq('id',id).eq('user_id',currentUser.id);
+}
+
+// ─── SORT + DATE NAVIGATION FOR VISITS TAB ────────────────────────────────────
+function setSort(mode){
+  sortMode=mode;
+  document.querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('sort-'+mode)?.classList.add('active');
+  renderAll();
+}
+function getSorted(){
+  const v=[...visits.filter(x=>x.date===listSelectedDate)];
+  if(sortMode==='time')v.sort((a,b)=>a.time.localeCompare(b.time));
+  else if(sortMode==='num')v.sort((a,b)=>a.num-b.num);
+  else{const o={pending:0,done:1,skipped:2};v.sort((a,b)=>(o[a.status]||0)-(o[b.status]||0));}
+  return v;
+}
+function shiftListDate(dir){
+  const d=new Date(listSelectedDate+'T12:00:00');
+  d.setDate(d.getDate()+dir);
+  listSelectedDate=toDateStr(d);
+  updateDateStripLabel();renderAll();
+}
+function goToToday(){listSelectedDate=todayStr();updateDateStripLabel();renderAll();}
+function updateDateStripLabel(){
+  const isToday=listSelectedDate===todayStr();
+  const d=new Date(listSelectedDate+'T12:00:00');
+  document.getElementById('date-strip-label').textContent=isToday?'Today — '+d.toLocaleDateString('en-US',{month:'short',day:'numeric'}):d.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+  document.getElementById('date-strip-today-btn').style.display=isToday?'none':'inline-block';
+}
+
+// ─── ROUTE / POINTS CALCS ──────────────────────────────────────────────────────
+function calcTotalMiles(){
+  const s=getSorted().filter(v=>v.coords);
+  if(!s.length)return 0;
+  let t=0,prev=homeCoords;
+  for(const v of s){t+=haversine(prev,v.coords);prev=v.coords;}
+  return t+haversine(prev,homeCoords);
+}
+function calcWeekVisitPoints(off){
+  const{monday,sunday}=getWeekBounds(off);
+  return visits.filter(v=>{const d=new Date(v.date+'T12:00:00');return d>=monday&&d<=sunday&&v.status!=='skipped';})
+    .reduce((s,v)=>s+getPoints(v),0);
+}
+function calcWeekExtraPoints(off){
+  const{monday,sunday}=getWeekBounds(off);
+  return extraPoints.filter(e=>{const d=new Date(e.date+'T12:00:00');return d>=monday&&d<=sunday;})
+    .reduce((s,e)=>s+e.pts,0);
+}
+function calcWeekPoints(off){return calcWeekVisitPoints(off)+calcWeekExtraPoints(off);}
+function calcDayPoints(dateStr){
+  const vp=visits.filter(v=>v.date===dateStr&&v.status!=='skipped').reduce((s,v)=>s+getPoints(v),0);
+  const ep=extraPoints.filter(e=>e.date===dateStr).reduce((s,e)=>s+e.pts,0);
+  return vp+ep;
+}
+
+async function optimizeRoute(){
+  const ld=listSelectedDate;
+  let today=visits.filter(v=>v.date===ld),other=visits.filter(v=>v.date!==ld);
+  if(today.length<2){showToast('Add more visits to optimize');return;}
+  let rem=[...today],order=[],cur=homeCoords;
+  while(rem.length){
+    let best=null,bd=Infinity;
+    for(const v of rem){if(!v.coords)continue;const dist=haversine(cur,v.coords);if(dist<bd){bd=dist;best=v;}}
+    if(!best)break;order.push(best);rem=rem.filter(v=>v.id!==best.id);cur=best.coords;
+  }
+  visits=[...other,...order];
+  const reordered=visits.filter(v=>v.date===ld);
+  reordered.forEach((v,i)=>v.num=i+1);
+  showToast('⚡ Route optimized!');renderAll();
+  for(const v of reordered){
+    await sb.from('visits').update({num:v.num}).eq('id',v.id).eq('user_id',currentUser.id);
+  }
+}
+function openFullRoute(){
+  const sorted=getSorted().filter(v=>v.coords);
+  if(!sorted.length){showToast('No visits to map');return;}
+  const wps=sorted.map(v=>encodeURIComponent(v.addr)).join('|');
+  window.open(`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(homeCoords.label)}&destination=${encodeURIComponent(homeCoords.label)}&waypoints=${wps}&travelmode=driving`,'_blank');
+}
+
+// ─── VIEWS ────────────────────────────────────────────────────────────────────
+function switchView(view){
+  currentView=view;
+  ['list','map','summary','points','calendar'].forEach(v=>{
+    document.getElementById('view-'+v).classList.toggle('visible',v===view);
+    document.getElementById('nav-'+v).classList.toggle('active',v===view);
+  });
+  if(view==='map')setTimeout(initOrRefreshMap,80);
+  if(view==='summary')renderSummary();
+  if(view==='points')renderPoints();
+  if(view==='calendar')renderCalendar();
+}
+
+// ─── CALENDAR ─────────────────────────────────────────────────────────────────
+function setCalMode(mode){
+  calMode=mode;
+  document.getElementById('cal-mode-month').classList.toggle('active',mode==='month');
+  document.getElementById('cal-mode-week').classList.toggle('active',mode==='week');
+  document.getElementById('cal-month-view').style.display=mode==='month'?'block':'none';
+  document.getElementById('cal-week-view').style.display=mode==='week'?'block':'none';
+  renderCalendar();
+}
+function calNav(dir){
+  if(calMode==='month') calRefDate.setMonth(calRefDate.getMonth()+dir);
+  else calRefDate.setDate(calRefDate.getDate()+dir*7);
+  renderCalendar();
+}
+function calGoToday(){calRefDate=new Date();selectedCalDate=todayStr();renderCalendar();}
+function selectCalDate(ds){selectedCalDate=ds;renderCalendar();}
+function openAddPanelForDate(ds){
+  openAddPanel();
+  document.getElementById('f-date').value=ds;
+}
+
+function renderCalendar(){
+  document.getElementById('cal-month-label').textContent=calRefDate.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  if(calMode==='month') renderCalMonthGrid();
+  else renderCalWeekStrip();
+  renderCalDayDetail();
+}
+
+function renderCalMonthGrid(){
+  const grid=document.getElementById('cal-grid');
+  const year=calRefDate.getFullYear(), month=calRefDate.getMonth();
+  const firstOfMonth=new Date(year,month,1);
+  const startDow=firstOfMonth.getDay();
+  const gridStart=new Date(firstOfMonth);
+  gridStart.setDate(gridStart.getDate()-startDow);
+  const today=todayStr();
+
+  let html='';
+  for(let i=0;i<42;i++){
+    const d=new Date(gridStart);
+    d.setDate(gridStart.getDate()+i);
+    const ds=toDateStr(d);
+    const isOtherMonth=d.getMonth()!==month;
+    const isToday=ds===today;
+    const isSelected=ds===selectedCalDate;
+    const dayVisits=visits.filter(v=>v.date===ds);
+    const dayPts=calcDayPoints(ds);
+    const dots=dayVisits.slice(0,4).map(v=>{
+      const color=v.status==='done'?'#0E7C66':v.status==='skipped'?'#9AA4B0':'#A85A0E';
+      return `<div class="cal-day-dot" style="background:${color}"></div>`;
+    }).join('');
+    html+=`<div class="cal-day ${isOtherMonth?'other-month':''} ${isToday?'is-today':''} ${isSelected?'selected':''}" data-date="${ds}">
+      <div class="cal-day-num">${d.getDate()}</div>
+      <div class="cal-day-dots">${dots}</div>
+      ${dayPts>0?`<div class="cal-day-pts">${dayPts.toFixed(1)}</div>`:''}
+    </div>`;
+  }
+  grid.innerHTML=html;
+  grid.querySelectorAll('.cal-day').forEach(el=>{
+    el.addEventListener('click',()=>selectCalDate(el.getAttribute('data-date')));
+  });
+}
+
+function renderCalWeekStrip(){
+  const strip=document.getElementById('cal-week-strip');
+  const day=calRefDate.getDay();
+  const monday=new Date(calRefDate);
+  monday.setDate(calRefDate.getDate()-(day===0?6:day-1));
+  const today=todayStr();
+  let html='';
+  for(let i=0;i<7;i++){
+    const d=new Date(monday);
+    d.setDate(monday.getDate()+i);
+    const ds=toDateStr(d);
+    const isToday=ds===today;
+    const isSelected=ds===selectedCalDate;
+    const dayPts=calcDayPoints(ds);
+    html+=`<div class="cal-week-day ${isToday?'is-today':''} ${isSelected?'selected':''}" data-date="${ds}">
+      <div class="cwd-name">${d.toLocaleDateString('en-US',{weekday:'short'})}</div>
+      <div class="cwd-num">${d.getDate()}</div>
+      <div class="cwd-pts">${dayPts>0?'⭐'+dayPts.toFixed(1):''}</div>
+    </div>`;
+  }
+  strip.innerHTML=html;
+  strip.querySelectorAll('.cal-week-day').forEach(el=>{
+    el.addEventListener('click',()=>selectCalDate(el.getAttribute('data-date')));
+  });
+}
+
+function renderCalDayDetail(){
+  const ds=selectedCalDate;
+  const d=new Date(ds+'T12:00:00');
+  document.getElementById('cal-detail-date').textContent=d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+  const dayVisits=visits.filter(v=>v.date===ds).sort((a,b)=>a.time.localeCompare(b.time));
+  const dayExtras=extraPoints.filter(e=>e.date===ds);
+  const list=document.getElementById('cal-day-detail-list');
+  if(!dayVisits.length&&!dayExtras.length){
+    list.innerHTML=`<div class="empty-state" style="padding:24px"><div class="empty-icon" style="font-size:32px">📭</div><p>Nothing scheduled this day.</p></div>`;
+    return;
+  }
+  let html='';
+  dayVisits.forEach(v=>{
+    const pts=getPoints(v);
+    const statusColor=v.status==='done'?'#0E7C66':v.status==='skipped'?'#9AA4B0':'#A85A0E';
+    html+=`<div class="visit-card status-${v.status}" style="margin-bottom:8px">
+      <div class="card-top">
+        <div class="visit-num-bubble">${v.num}</div>
+        <div class="card-info">
+          <div class="card-name">${escAttr(v.name)}</div>
+          <div class="card-addr">📍 ${escAttr(v.addr)}</div>
+          <div class="card-tags">
+            <span class="tag tag-time">⏰ ${v.time}</span>
+            <span class="tag tag-type">${TYPE_LABELS[v.type]||v.type}</span>
+            <span class="tag tag-visit">${CAT_LABELS[v.cat]||v.cat}</span>
+          </div>
+        </div>
+        <div class="card-pts-badge"><div class="pts-circle"><span class="pts-num">${pts}</span><span class="pts-word">pts</span></div></div>
+      </div>
+      <div class="card-actions">
+        <button class="card-action-btn" onclick="selectDateAndGoToList('${ds}')" style="color:var(--accent-mid)"><span class="act-icon">📋</span>Open in Visits</button>
+        <button class="card-action-btn" data-action="edit" data-id="${v.id}" onclick="openEditPanel(${v.id})"><span class="act-icon">✏️</span>Edit</button>
+      </div>
+    </div>`;
+  });
+  dayExtras.forEach(e=>{
+    html+=`<div class="extra-pts-row" style="background:var(--white);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:8px">
+      <span class="dv-extra-icon">⭐</span>
+      <div class="extra-pts-info"><div class="extra-pts-label">${escAttr(e.label)}</div></div>
+      <span class="extra-pts-val">⭐ ${e.pts.toFixed(2)}</span>
+      <button class="extra-pts-del" onclick="deleteExtraPoint(${e.id})">✕</button>
+    </div>`;
+  });
+  list.innerHTML=html;
+}
+function selectDateAndGoToList(ds){
+  listSelectedDate=ds;
+  updateDateStripLabel();
+  switchView('list');
+}
+
+// ─── MAP ──────────────────────────────────────────────────────────────────────
+function initOrRefreshMap(){
+  if(!leafletMap){
+    leafletMap=L.map('leaflet-map',{zoomControl:true});
+    setLayerOnMap('satellite');
+    leafletMap.setView([homeCoords.lat,homeCoords.lng],11);
+  } else {leafletMap.invalidateSize();}
+  updateMapMarkers();
+}
+function setLayer(name){
+  currentLayer=name;
+  document.querySelectorAll('.layer-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('btn-'+name).classList.add('active');
+  if(leafletMap)setLayerOnMap(name);
+}
+function setLayerOnMap(name){
+  if(tileLayer){leafletMap.removeLayer(tileLayer);tileLayer=null;}
+  if(labelLayer){leafletMap.removeLayer(labelLayer);labelLayer=null;}
+  const cfg=TILES[name];
+  tileLayer=L.tileLayer(cfg.url,{attribution:cfg.attr,maxZoom:19}).addTo(leafletMap);
+  if(name==='hybrid'&&cfg.labels)
+    labelLayer=L.tileLayer(cfg.labels,{attribution:'',maxZoom:19,opacity:0.85}).addTo(leafletMap);
+}
+function makePin(v){
+  const color=v.status==='done'?'#0E7C66':v.status==='skipped'?'#888':'#A85A0E';
+  return L.divIcon({html:`<div class="marker-pin" style="background:${color}">${v.num}</div>`,className:'',iconSize:[28,28],iconAnchor:[14,14],popupAnchor:[0,-16]});
+}
+function makeHomePin(){
+  return L.divIcon({html:`<div class="marker-pin" style="background:#1B4F72;width:34px;height:34px;font-size:16px">🏠</div>`,className:'',iconSize:[34,34],iconAnchor:[17,17],popupAnchor:[0,-18]});
+}
+function updateMapMarkers(){
+  if(!leafletMap)return;
+  if(markersGroup)leafletMap.removeLayer(markersGroup);
+  if(routeLine)leafletMap.removeLayer(routeLine);
+  const sorted=getSorted();
+  const group=L.featureGroup();
+  const routeCoords=[[homeCoords.lat,homeCoords.lng]];
+  L.marker([homeCoords.lat,homeCoords.lng],{icon:makeHomePin()})
+    .bindPopup(`<div class="lf-popup"><h4>🏠 Home Base</h4><p>${escAttr(homeCoords.label)}</p></div>`)
+    .addTo(group);
+  sorted.forEach(v=>{
+    if(!v.coords)return;
+    const pts=getPoints(v);
+    L.marker([v.coords.lat,v.coords.lng],{icon:makePin(v)})
+      .bindPopup(`<div class="lf-popup">
+        <h4>${v.num}. ${escAttr(v.name)}</h4>
+        <p>📍 ${escAttr(v.addr)}</p>
+        <p>⏰ ${v.time} &nbsp;|&nbsp; ⏱ ${v.dur} min</p>
+        <p>
+          <span class="pop-tag" style="background:#D6EAF8;color:#1B4F72">${CAT_LABELS[v.cat]||v.cat}</span>
+          <span class="pop-tag" style="background:#FDEBD0;color:#A85A0E">${TYPE_LABELS[v.type]||v.type}</span>
+          <span class="pop-tag" style="background:#E8DAEF;color:#6C3483">⭐ ${pts} pts</span>
+        </p>
+        ${v.notes?`<p style="font-style:italic;font-size:11px">💬 ${escAttr(v.notes)}</p>`:''}
+        <button class="btn-nav" data-action="nav" data-id="${v.id}">🧭 Navigate here</button>
+      </div>`,{maxWidth:260})
+      .addTo(group);
+    routeCoords.push([v.coords.lat,v.coords.lng]);
+  });
+  if(routeCoords.length>1)routeCoords.push([homeCoords.lat,homeCoords.lng]);
+  routeLine=L.polyline(routeCoords,{color:'#2471A3',weight:3,opacity:0.7,dashArray:'8,6'}).addTo(leafletMap);
+  markersGroup=group;group.addTo(leafletMap);
+  leafletMap.off('popupopen');
+  leafletMap.on('popupopen',(e)=>{
+    const btn=e.popup._contentNode.querySelector('[data-action="nav"]');
+    if(btn) btn.addEventListener('click',()=>navTo(parseInt(btn.getAttribute('data-id'))));
+  });
+  try{if(group.getLayers().length)leafletMap.fitBounds(group.getBounds().pad(0.15));}catch(e){}
+}
+
+// ─── RENDER LIST ──────────────────────────────────────────────────────────────
+function renderList(){
+  const c=document.getElementById('visit-list-container');
+  const sorted=getSorted();
+  if(!sorted.length){
+    const isToday=listSelectedDate===todayStr();
+    c.innerHTML=`<div class="empty-state"><div class="empty-icon">🗓️</div><p>No visits for ${isToday?'today':'this day'}.<br>Tap <strong>+</strong> to add a patient.</p></div>`;
+    return;
+  }
+  c.innerHTML=sorted.map((v,i)=>{
+    const prev=i>0&&sorted[i-1].coords&&v.coords;
+    const dist=prev?haversine(sorted[i-1].coords,v.coords).toFixed(1)+' mi':(i===0&&v.coords?haversine(homeCoords,v.coords).toFixed(1)+' mi from base':'');
+    const pts=getPoints(v);
+    return `<div class="visit-card status-${v.status}">
+      <div class="card-top">
+        <div class="visit-num-bubble">${v.num}</div>
+        <div class="card-info">
+          <div class="card-name">${escAttr(v.name)}</div>
+          <div class="card-addr">📍 ${escAttr(v.addr)}</div>
+          <div class="card-tags">
+            <span class="tag tag-time">⏰ ${v.time}</span>
+            <span class="tag tag-dur">⏱ ${v.dur}m</span>
+            <span class="tag tag-type">${TYPE_LABELS[v.type]||v.type}</span>
+            <span class="tag tag-visit">${CAT_LABELS[v.cat]||v.cat}</span>
+            ${dist?`<span class="tag tag-miles">🚗 ${dist}</span>`:''}
+          </div>
+        </div>
+        <div class="card-pts-badge"><div class="pts-circle"><span class="pts-num">${pts}</span><span class="pts-word">pts</span></div></div>
+      </div>
+      ${v.notes?`<div class="card-notes">💬 ${escAttr(v.notes)}</div>`:''}
+      <div class="card-actions">
+        <button class="card-action-btn btn-done-act" data-action="done" data-id="${v.id}"><span class="act-icon">${v.status==='done'?'↩️':'✅'}</span>${v.status==='done'?'Undo':'Done'}</button>
+        <button class="card-action-btn" data-action="skip" data-id="${v.id}"><span class="act-icon">${v.status==='skipped'?'↩️':'⏭️'}</span>${v.status==='skipped'?'Unskip':'Skip'}</button>
+        <button class="card-action-btn btn-nav-act" data-action="nav" data-id="${v.id}"><span class="act-icon">🧭</span>Navigate</button>
+        <button class="card-action-btn" style="color:var(--accent-mid)" data-action="edit" data-id="${v.id}"><span class="act-icon">✏️</span>Edit</button>
+        <button class="card-action-btn btn-del-act" data-action="delete" data-id="${v.id}"><span class="act-icon">🗑️</span>Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─── RENDER STATS ─────────────────────────────────────────────────────────────
+function renderStats(){
+  const mi=calcTotalMiles();
+  const todayPts=calcDayPoints(listSelectedDate);
+  const weekPts=calcWeekPoints(0);
+  const remain=Math.max(0,weeklyTarget-weekPts);
+  const pct=Math.min(100,(weekPts/weeklyTarget)*100);
+  document.getElementById('stat-miles').textContent=mi.toFixed(1);
+  document.getElementById('stat-pts-today').textContent=todayPts.toFixed(2);
+  document.getElementById('stat-pts-week').textContent=weekPts.toFixed(2);
+  document.getElementById('stat-pts-remain').textContent=weekPts>=weeklyTarget?'🎉 Done!':remain.toFixed(2);
+  const fill=document.getElementById('weekly-bar-fill');
+  fill.style.width=pct.toFixed(1)+'%';
+  fill.className='weekly-bar-fill'+(pct<50?' warn':'');
+  document.getElementById('weekly-bar-pct').textContent=pct.toFixed(0)+'%';
+  document.getElementById('weekly-bar-lbl').textContent=`Weekly target: ${weeklyTarget} pts`;
+}
+
+// ─── RENDER POINTS ────────────────────────────────────────────────────────────
+function shiftWeek(dir){viewingWeekOffset+=dir;renderPoints();}
+function renderPoints(){
+  const{monday,sunday}=getWeekBounds(viewingWeekOffset);
+  const weekPts=calcWeekPoints(viewingWeekOffset);
+  const remain=Math.max(0,weeklyTarget-weekPts);
+  const pct=Math.min(100,(weekPts/weeklyTarget)*100);
+  const fmt={month:'short',day:'numeric'};
+  document.getElementById('week-nav-lbl').textContent=
+    monday.toLocaleDateString('en-US',fmt)+' – '+sunday.toLocaleDateString('en-US',fmt);
+
+  const weekVis=visits.filter(v=>{const d=new Date(v.date+'T12:00:00');return d>=monday&&d<=sunday;});
+  const weekExtra=extraPoints.filter(e=>{const d=new Date(e.date+'T12:00:00');return d>=monday&&d<=sunday;});
+
+  const byDay={};
+  weekVis.forEach(v=>{if(!byDay[v.date])byDay[v.date]=[];byDay[v.date].push({kind:'visit',data:v});});
+  weekExtra.forEach(e=>{if(!byDay[e.date])byDay[e.date]=[];byDay[e.date].push({kind:'extra',data:e});});
+  const days=Object.keys(byDay).sort();
+
+  const daysHtml=days.map(ds=>{
+    const items=byDay[ds];
+    const dp=items.reduce((s,it)=>it.kind==='visit'?s+(it.data.status!=='skipped'?getPoints(it.data):0):s+it.data.pts,0);
+    const rows=items.map(it=>{
+      if(it.kind==='visit'){
+        const v=it.data;
+        const dot=v.status==='done'?'#0E7C66':v.status==='skipped'?'#9AA4B0':'#A85A0E';
+        return `<div class="day-visit-row">
+          <div class="dv-status-dot" style="background:${dot}"></div>
+          <div class="dv-name">${escAttr(v.name)}</div>
+          <div class="dv-chips"><span class="dv-chip dv-cat">${CAT_LABELS[v.cat]||v.cat}</span><span class="dv-chip dv-pts">⭐ ${getPoints(v)}</span></div>
+        </div>`;
+      } else {
+        const e=it.data;
+        return `<div class="day-visit-row"><span class="dv-extra-icon">⭐</span><div class="dv-name">${escAttr(e.label)}</div><div class="dv-chips"><span class="dv-chip dv-pts">⭐ ${e.pts}</span></div></div>`;
+      }
+    }).join('');
+    return `<div class="day-card"><div class="day-card-header"><h3>${getDayLabel(ds)}</h3><span class="day-pts-pill">⭐ ${dp.toFixed(2)} pts</span></div><div>${rows}</div></div>`;
+  }).join('');
+
+  const refRows=Object.keys(catPoints).map(k=>`<div class="pts-ref-row"><span class="pts-ref-name">${CAT_FULL[k]}</span><span class="pts-ref-val">⭐ ${(catPoints[k]||0).toFixed(2)}</span></div>`).join('');
+  const extraListHtml=weekExtra.length?weekExtra.map(e=>`
+    <div class="extra-pts-row">
+      <div class="extra-pts-info"><div class="extra-pts-label">${escAttr(e.label)}</div><div class="extra-pts-date">${getDayLabel(e.date)}</div></div>
+      <span class="extra-pts-val">⭐ ${e.pts.toFixed(2)}</span>
+      <button class="extra-pts-del" onclick="deleteExtraPoint(${e.id})">✕</button>
+    </div>`).join(''):'<div class="extra-pts-row"><span style="color:var(--text-muted);font-size:12px">No extra points logged this week. Tap the ⭐ button to add meetings, education, etc.</span></div>';
+
+  document.getElementById('points-content').innerHTML=`
+    <div class="week-target-card">
+      <div class="wtc-title">Weekly productivity</div>
+      <div class="wtc-nums"><span class="wtc-earned">${weekPts.toFixed(2)}</span><span class="wtc-sep">/</span><span class="wtc-target">${weeklyTarget}</span><span class="wtc-unit">pts</span></div>
+      <div class="wtc-track"><div class="wtc-fill ${pct<50?'warn':''}" style="width:${pct.toFixed(1)}%"></div></div>
+      <div class="wtc-row"><span class="wtc-remain">${weekPts>=weeklyTarget?'🎉 Target reached! +'+(weekPts-weeklyTarget).toFixed(2)+' over':'⬜ '+remain.toFixed(2)+' pts to go'}</span><span class="wtc-pct">${pct.toFixed(0)}%</span></div>
+    </div>
+    ${days.length?daysHtml:'<div class="day-card"><div class="day-card-header"><h3 style="color:var(--text-muted)">No visits this week</h3></div></div>'}
+    <div class="pts-ref-card"><div class="pts-ref-header">⭐ Other productivity points</div>${extraListHtml}</div>
+    <div class="pts-ref-card"><div class="pts-ref-header">📋 Your point values <button class="pts-ref-edit-btn" onclick="openSettings()">✏️ Edit</button></div>${refRows}</div>`;
+}
+
+// ─── RENDER SUMMARY ───────────────────────────────────────────────────────────
+function renderSummary(){
+  const sorted=getSorted();
+  const mi=calcTotalMiles();
+  const done=visits.filter(v=>v.date===listSelectedDate&&v.status==='done').length;
+  const pend=visits.filter(v=>v.date===listSelectedDate&&v.status==='pending').length;
+  const skip=visits.filter(v=>v.date===listSelectedDate&&v.status==='skipped').length;
+  const todayPts=calcDayPoints(listSelectedDate);
+  const weekPts=calcWeekPoints(0);
+  const breakdown=sorted.map((v,i)=>{
+    const prev=i>0&&sorted[i-1].coords&&v.coords;
+    const dist=prev?haversine(sorted[i-1].coords,v.coords).toFixed(1):'-';
+    return `<div class="summary-row">
+      <span class="s-label"><span class="visit-cat-chip">${CAT_LABELS[v.cat]||v.cat}</span><span class="visit-type-chip">${TYPE_LABELS[v.type]||v.type}</span>${escAttr(v.name)}</span>
+      <span class="s-val" style="display:flex;gap:6px;align-items:center">${dist!=='-'?dist+' mi':'—'}<span style="background:var(--purple-bg);color:var(--purple);font-size:10px;font-weight:700;padding:2px 6px;border-radius:20px">⭐${getPoints(v)}</span></span>
+    </div>`;
+  }).join('');
+  const tf=new Date(listSelectedDate+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  document.getElementById('summary-content').innerHTML=`
+    <div class="summary-card"><h3>📅 ${tf}</h3>
+      <div class="mileage-big">${mi.toFixed(1)} mi</div>
+      <div class="mileage-sub">Estimated total mileage (round trip)</div>
+      <div class="summary-row"><span class="s-label">This day's points</span><span class="s-val" style="color:var(--purple)">⭐ ${todayPts.toFixed(2)}</span></div>
+      <div class="summary-row"><span class="s-label">Week points</span><span class="s-val" style="color:var(--purple)">⭐ ${weekPts.toFixed(2)} / ${weeklyTarget}</span></div>
+      <div class="summary-row"><span class="s-label">Patients this day</span><span class="s-val">${sorted.length}</span></div>
+      <div class="summary-row"><span class="s-label">Completed</span><span class="s-val" style="color:var(--teal)">${done}</span></div>
+      <div class="summary-row"><span class="s-label">Pending</span><span class="s-val" style="color:var(--amber)">${pend}</span></div>
+      <div class="summary-row"><span class="s-label">Skipped</span><span class="s-val" style="color:var(--red)">${skip}</span></div>
+    </div>
+    <div class="summary-card"><h3>🚗 Route &amp; Points</h3>${breakdown||'<div class="summary-row"><span class="s-label" style="color:var(--text-muted)">No visits yet</span></div>'}</div>
+    <div class="summary-card"><button class="export-btn" onclick="exportSummary()">📄 Export Day Summary</button></div>`;
+}
+
+// ─── EXPORT ───────────────────────────────────────────────────────────────────
+function exportSummary(){
+  const sorted=getSorted();const mi=calcTotalMiles();const d=new Date(listSelectedDate+'T12:00:00');
+  const todayPts=calcDayPoints(listSelectedDate);
+  const weekPts=calcWeekPoints(0);
+  let txt=`ROUNDLY — DAILY ROUTE SUMMARY\n${d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}\n`;
+  txt+=`Starting from: ${homeCoords.label}\nMileage: ${mi.toFixed(1)} mi\n`;
+  txt+=`This day: ${todayPts.toFixed(2)} pts | Week: ${weekPts.toFixed(2)} / ${weeklyTarget} pts\n\nVISITS:\n${'─'.repeat(50)}\n`;
+  sorted.forEach((v,i)=>{
+    const prev=i>0&&sorted[i-1].coords&&v.coords;
+    const dist=prev?haversine(sorted[i-1].coords,v.coords).toFixed(1)+' mi':'';
+    txt+=`\n${v.num}. ${v.name}  [${v.status.toUpperCase()}]\n   ${v.addr}\n   ${v.time} | ${v.dur} min | ${TYPE_LABELS[v.type]||v.type}\n   ${CAT_FULL[v.cat]||v.cat} | ${getPoints(v)} pts\n`;
+    if(dist)txt+=`   Drive from prev: ${dist}\n`;
+    if(v.notes)txt+=`   Notes: ${v.notes}\n`;
+  });
+  const dayExtras=extraPoints.filter(e=>e.date===listSelectedDate);
+  if(dayExtras.length){
+    txt+=`\nOTHER PRODUCTIVITY:\n${'─'.repeat(50)}\n`;
+    dayExtras.forEach(e=>{txt+=`${e.label}: ${e.pts} pts\n`;});
+  }
+  txt+=`\n${'─'.repeat(50)}\nTotal: ${mi.toFixed(1)} mi | This day: ${todayPts.toFixed(2)} pts | Week: ${weekPts.toFixed(2)} / ${weeklyTarget} pts\n`;
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'text/plain'}));
+  a.download=`roundly_${listSelectedDate}.txt`;a.click();
+  showToast('📄 Exported!');
+}
+
+// ─── PANELS ───────────────────────────────────────────────────────────────────
+function openAddPanel(){
+  resetForm();
+  document.getElementById('panel-title-text').textContent='Add Patient Visit';
+  document.getElementById('f-submit-btn').textContent='+ Add to Route';
+  document.getElementById('f-delete-btn').style.display='none';
+  document.getElementById('f-date').value=listSelectedDate;
+  document.getElementById('f-time').value='09:00';
+  document.getElementById('f-dur').value=30;
+  document.getElementById('f-cat').selectedIndex=0;
+  updatePtsPreview();
+  document.getElementById('add-panel').classList.add('open');
+  document.getElementById('overlay').classList.add('open');
+  setTimeout(()=>document.getElementById('f-name').focus(),300);
+}
+function closeAllPanels(){
+  ['add-panel','settings-panel','extra-panel'].forEach(id=>document.getElementById(id).classList.remove('open'));
+  document.getElementById('overlay').classList.remove('open');
+  document.getElementById('addr-dropdown').classList.remove('open');
+  document.getElementById('name-dropdown').classList.remove('open');
+}
+
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+function showToast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+// ─── RENDER ALL ───────────────────────────────────────────────────────────────
+function renderAll(){
+  renderList();renderStats();
+  if(currentView==='map')updateMapMarkers();
+  if(currentView==='summary')renderSummary();
+  if(currentView==='points')renderPoints();
+  if(currentView==='calendar')renderCalendar();
+}
+
+window.addEventListener('resize',()=>{
+  clearTimeout(window._rrt);
+  window._rrt=setTimeout(()=>{if(leafletMap)leafletMap.invalidateSize();},150);
+});
+</script>
+</body>
+</html>

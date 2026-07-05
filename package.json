@@ -1,0 +1,8 @@
+{
+  "name": "roundly",
+  "private": true,
+  "description": "Home health clinician route, mileage, and productivity tracker",
+  "devDependencies": {
+    "supabase": "^2.109.0"
+  }
+}

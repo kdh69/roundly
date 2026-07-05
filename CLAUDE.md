@@ -73,7 +73,7 @@ Weekly target: **30 points** (configurable per user in Settings).
 - Weekly progress — progress bar toward target, browsable week-by-week
 - Calendar view — month + week views with visit dots and daily point totals
 - Light/dark mode — auto (follows system) or manual override
-- Color themes — 6 accent options (Ocean, Teal, Plum, Rose, Forest, Slate)
+- Color themes — 7 accent options (Sunset default, Ocean, Teal, Plum, Rose, Forest, Slate); "soft sunset" visual system: ambient accent-tinted glow blobs painted on `#app`, borderless cards with warm soft shadows, gradient primary actions via the `--accent-grad` token (derived from each accent's two stops)
 - PIN lock — local quick-lock per device (localStorage keyed to Google account ID)
 - Backup/restore — export all data as JSON, restore merges into current account
 - Export — daily route summary as `.txt` for mileage reimbursement docs

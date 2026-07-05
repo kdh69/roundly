@@ -30,10 +30,10 @@
 ### Database tables (all RLS-enabled, schema in `supabase_schema.sql` / `supabase/migrations/`)
 
 ```
-visits          — patient visits (user_id, num, name, addr, date, time, dur, type, cat, notes, status, lat, lng)
+visits          — patient visits (user_id, num, name, addr, date, time, dur, type, cat, notes, status, lat, lng, pay)
 extra_points    — non-visit productivity (user_id, label, date, pts)
 saved_patients  — autocomplete history (user_id, name, addr, lat, lng) — unique per user+name
-user_settings   — per-user config (user_id, cat_points jsonb, weekly_target, home_label/lat/lng, theme_mode, accent_id)
+user_settings   — per-user config (user_id, cat_points jsonb, weekly_target, home_label/lat/lng, theme_mode, accent_id, pay_mode, cat_pay jsonb)
 ```
 
 RLS policy pattern on every table: `for all using (auth.uid() = user_id) with check (auth.uid() = user_id)` — a user can only ever see/edit their own rows, enforced by Postgres itself.
@@ -56,6 +56,8 @@ RLS policy pattern on every table: `for all using (auth.uid() = user_id) with ch
 
 Weekly target: **30 points** (configurable per user in Settings).
 
+**Pay mode (salaried vs PPV):** a per-user Settings toggle (`pay_mode`, default `salaried`). In **PPV (Paid-Per-Visit)** mode each category also has a default dollar rate (`cat_pay` jsonb, edited in Settings), auto-filled into each visit and overridable per-visit (`visits.pay`; blank/null = use the category default via `getPay()`). Salaried mode is unchanged (points only). PPV additionally shows dollars alongside points — a header earnings strip (day/week), a pay chip per visit card, per-day/week earnings in the Points and Summary views, and pay in the exported summary. Helpers: `isPPV()`, `getPay(v)`, `calcDayPay()`, `calcWeekPay()`, `fmtMoney()`.
+
 ---
 
 ## APP FEATURES (fully built)
@@ -69,14 +71,15 @@ Weekly target: **30 points** (configurable per user in Settings).
 - Route optimization — nearest-neighbor + 2-opt improvement; optimized days follow the stored visit `num` order (flag kept in localStorage per device), all other days follow appointment-time order (`routeVisits()` is the single source of driving order)
 - Mileage tracking — real road distance via OSRM (round trip from home base), haversine straight-line as offline fallback; UI labels which one is showing
 - Productivity points — per-visit points auto-calculated by category, configurable per user
+- Pay mode (salaried / PPV) — optional Paid-Per-Visit tracking: per-category dollar rates, per-visit override, day/week earnings shown alongside points (see Pay mode note above)
 - Extra points — non-visit productivity (meetings, education, training) toward weekly goal
-- Weekly progress — progress bar toward target, browsable week-by-week
+- Weekly progress — progress bar toward target, browsable week-by-week, with a "points to go → visits needed" forecast line
 - Calendar view — month + week views with visit dots and daily point totals
 - Light/dark mode — auto (follows system) or manual override
 - Color themes — 7 accent options (Sunset default, Ocean, Teal, Plum, Rose, Forest, Slate); "soft sunset" visual system: ambient accent-tinted glow blobs painted on `#app`, borderless cards with warm soft shadows, gradient primary actions via the `--accent-grad` token (derived from each accent's two stops)
 - PIN lock — local quick-lock per device (localStorage keyed to Google account ID)
 - Backup/restore — export all data as JSON, restore merges into current account
-- Export — daily route summary as `.txt` for mileage reimbursement docs
+- Export — daily route summary (mileage, points, and pay in PPV mode) via native share sheet on mobile (`navigator.share`), `.txt` download fallback on desktop
 - PWA ready — `manifest.json` for Add to Home Screen on iOS/Android
 
 ---

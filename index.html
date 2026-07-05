@@ -176,6 +176,13 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
 .weekly-bar-track{height:8px;background:var(--accent-light);border-radius:4px;overflow:hidden}
 .weekly-bar-fill{height:100%;border-radius:4px;transition:width 0.4s ease;background:linear-gradient(90deg,#2FB56A,#4FD98B)}
 .weekly-bar-fill.warn{background:linear-gradient(90deg,#E29638,#F5B45F)}
+.week-forecast{font-size:11px;color:var(--text-muted);margin-top:6px;line-height:1.3}
+.week-forecast:empty{display:none}
+/* PPV earnings strip under the weekly bar */
+.earnings-strip{display:flex;gap:8px;margin:2px 12px 12px;padding:8px 12px;background:var(--green-bg);border-radius:var(--radius-md);box-shadow:var(--shadow-sm)}
+.earnings-strip .es-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:1px}
+.earnings-strip .es-lbl{font-size:10px;font-weight:600;color:var(--green);opacity:0.85}
+.earnings-strip .es-val{font-size:16px;font-weight:800;color:var(--green)}
 
 /* ===== HOME BAR ===== */
 .home-bar{display:flex;align-items:center;gap:8px;padding:8px 12px 4px;border-bottom:none;background:transparent;flex-shrink:0}
@@ -227,6 +234,7 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
 .tag-time{background:var(--gray-100);color:var(--gray-800)}
 .tag-dur{background:var(--gray-100);color:var(--gray-800)}
 .tag-miles{background:var(--teal-bg);color:var(--teal)}
+.tag-pay{background:var(--green-bg);color:var(--green)}
 .card-pts-badge{flex-shrink:0}
 .pts-circle{width:40px;height:40px;border-radius:50%;background:var(--purple-bg);display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:inset 0 0 0 1px rgba(108,52,131,0.18),0 1px 3px rgba(0,0,0,0.08)}
 .pts-num{font-size:14px;font-weight:700;color:var(--purple);line-height:1}
@@ -284,6 +292,15 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
 .setting-name{font-size:13px;color:var(--text);flex:1}
 .setting-pts-input{width:72px;font-size:14px;font-weight:700;padding:6px 10px;border-radius:var(--radius-sm);border:none;text-align:right;color:var(--purple);background:var(--purple-bg)}
 .setting-pts-input:focus{outline:none;border-color:var(--purple);box-shadow:0 0 0 2px var(--purple-bg)}
+.setting-pay-wrap{display:flex;align-items:center;gap:2px;background:var(--green-bg);border-radius:var(--radius-sm);padding:0 8px}
+.setting-pay-sign{font-size:13px;font-weight:700;color:var(--green)}
+.setting-pay-input{width:64px;font-size:14px;font-weight:700;padding:6px 4px;border:none;text-align:right;color:var(--green);background:transparent}
+.setting-pay-input:focus{outline:none}
+/* Visit-form pay field */
+.pay-input-wrap{display:flex;align-items:center;gap:4px;background:var(--input-bg);border-radius:var(--radius-md);padding:0 12px}
+.pay-input-sign{font-size:15px;font-weight:700;color:var(--green)}
+.pay-input.form-input{background:transparent;padding-left:2px}
+.pay-input-hint{font-size:11px;color:var(--text-muted);margin-top:4px}
 .setting-target-row{display:flex;align-items:center;gap:10px;margin-top:4px}
 .setting-target-row label{font-size:14px;color:var(--text);flex:1}
 .setting-target-input{width:80px;font-size:18px;font-weight:700;padding:8px 10px;border-radius:var(--radius-sm);border:none;text-align:center;color:var(--accent);background:var(--input-bg)}
@@ -434,11 +451,16 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
 .wtc-fill.warn{background:#F0A848}
 .wtc-row{display:flex;justify-content:space-between;font-size:12px}
 .wtc-remain{opacity:0.85}
+.wtc-earned-row{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.25)}
+.wtc-earned-lbl{font-size:12px;opacity:0.9}
+.wtc-earned-amt{font-size:20px;font-weight:800}
 .wtc-pct{font-weight:700}
 .day-card{background:var(--white);border:none;border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-sm)}
 .day-card-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--gray-50);border-bottom:none}
 .day-card-header h3{font-size:13px;font-weight:700;color:var(--accent)}
 .day-pts-pill{font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;background:var(--purple-bg);color:var(--purple)}
+.day-card-pills{display:flex;align-items:center;gap:6px}
+.day-pay-pill{font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;background:var(--green-bg);color:var(--green)}
 .day-visit-row{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--gray-100)}
 .day-visit-row:last-child{border-bottom:none}
 .dv-name{flex:1;font-size:13px;font-weight:500;color:var(--text);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -581,7 +603,9 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
         <span class="weekly-bar-val" id="weekly-bar-pct">0%</span>
       </div>
       <div class="weekly-bar-track"><div class="weekly-bar-fill" id="weekly-bar-fill" style="width:0%"></div></div>
+      <div class="week-forecast" id="week-forecast"></div>
     </div>
+    <div class="earnings-strip" id="earnings-strip" onclick="openPointsView()" role="button" style="display:none"></div>
   </div>
 
   <!-- VIEW: LIST -->
@@ -772,6 +796,11 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
       <span class="pts-preview-lbl">⭐ Points for this visit</span>
       <span class="pts-preview-val" id="pts-preview-val">—</span>
     </div>
+    <div id="pay-field-wrap" style="display:none">
+      <div class="field-label">Pay for this visit ($)</div>
+      <div class="pay-input-wrap"><span class="pay-input-sign">$</span><input class="form-input pay-input" id="f-pay" type="number" min="0" max="10000" step="1" placeholder="0.00"></div>
+      <div class="pay-input-hint">Leave blank to use this category's default rate.</div>
+    </div>
     <div>
       <div class="field-label">Notes (optional)</div>
       <input class="form-input" id="f-notes" type="text" placeholder="e.g. gate code, call ahead…">
@@ -846,11 +875,26 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
   </div>
 
   <div class="settings-section">
+    <div class="settings-section-title">Pay mode</div>
+    <div class="theme-toggle-row">
+      <button class="theme-btn" id="pay-btn-salaried" onclick="setPayMode('salaried')"><span class="theme-icon">💼</span>Salaried</button>
+      <button class="theme-btn" id="pay-btn-ppv" onclick="setPayMode('ppv')"><span class="theme-icon">💵</span>Per visit</button>
+    </div>
+    <div class="backup-note" id="pay-mode-note">Salaried: track points only. Per-visit (PPV): also set a dollar rate per category and track your earnings per day and week.</div>
+  </div>
+
+  <div class="settings-section">
     <div class="settings-section-title">Weekly target</div>
     <div class="setting-target-row">
       <label>Points needed per week</label>
       <input type="number" class="setting-target-input" id="s-weekly-target" value="30" min="1" max="200" step="0.5">
     </div>
+  </div>
+
+  <div class="settings-section" id="settings-pay-section" style="display:none">
+    <div class="settings-section-title">Pay per visit category ($)</div>
+    <div id="settings-pay-rows"><!-- built by buildSettingsRows() --></div>
+    <div class="backup-note">Default rate auto-fills on each new visit — you can still override the amount on any individual visit.</div>
   </div>
 
   <div class="settings-section">
@@ -944,6 +988,11 @@ let catPoints = {...DEFAULT_POINTS};
 let customCats = {};
 let customTypes = {};
 let weeklyTarget = DEFAULT_WEEKLY_TARGET;
+// Pay tracking. 'salaried' (default) = points only, unchanged app. 'ppv' =
+// Paid-Per-Visit: each category has a default dollar rate (catPay, editable in
+// Settings), auto-filled into each visit and overridable per-visit (visits.pay).
+let payMode = 'salaried';    // 'salaried' | 'ppv'
+let catPay = {};             // { categoryKey: dollarsPerVisit } — missing = 0
 let themeMode = 'auto';      // 'light' | 'dark' | 'auto'
 let accentId = 'coral';
 let currentUser = null;      // {id, name, email, avatar} from Supabase auth
@@ -1146,6 +1195,7 @@ async function loadAllDataFromSupabase(){
   visits = (visitsRes.data||[]).map(r=>({
     id:r.id, num:r.num, name:r.name, addr:r.addr, date:r.date, time:r.time,
     dur:r.dur, type:r.type, cat:r.cat, notes:r.notes||'', status:r.status,
+    pay: r.pay!=null ? Number(r.pay) : null,
     coords: (r.lat!=null && r.lng!=null) ? {lat:r.lat,lng:r.lng} : null
   }));
   extraPoints = (extraRes.data||[]).map(r=>({id:r.id,label:r.label,date:r.date,pts:Number(r.pts)}));
@@ -1160,6 +1210,8 @@ async function loadAllDataFromSupabase(){
     customTypes = s.custom_types||{};
     applyCustomCatsAndTypes();
     weeklyTarget = Number(s.weekly_target)||DEFAULT_WEEKLY_TARGET;
+    payMode = s.pay_mode==='ppv' ? 'ppv' : 'salaried';
+    catPay = s.cat_pay||{};
     homeCoords = {lat:s.home_lat, lng:s.home_lng, label:s.home_label};
     themeMode = s.theme_mode||'auto';
     accentId = s.accent_id||'coral';
@@ -1182,6 +1234,8 @@ async function saveUserSettings(){
     custom_cats: customCats,
     custom_types: customTypes,
     weekly_target: weeklyTarget,
+    pay_mode: payMode,
+    cat_pay: catPay,
     home_label: homeCoords.label,
     home_lat: homeCoords.lat,
     home_lng: homeCoords.lng,
@@ -1353,7 +1407,7 @@ function downloadBackup(){
     exportedAt:new Date().toISOString(),
     account:currentUser?.email||null,
     visits,extraPoints,savedPatients,
-    homeCoords,catPoints,weeklyTarget,themeMode,accentId
+    homeCoords,catPoints,weeklyTarget,themeMode,accentId,payMode,catPay
   };
   const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
   const a=document.createElement('a');
@@ -1381,7 +1435,7 @@ async function restoreBackup(evt){
         const rows=data.visits.map(v=>({
           user_id:uid, num:v.num||1, name:v.name, addr:v.addr, date:v.date, time:v.time,
           dur:v.dur, type:v.type, cat:v.cat, notes:v.notes||'', status:v.status||'pending',
-          lat:v.coords?.lat??null, lng:v.coords?.lng??null
+          pay:v.pay??null, lat:v.coords?.lat??null, lng:v.coords?.lng??null
         }));
         await sb.from('visits').insert(rows);
       }
@@ -1396,6 +1450,15 @@ async function restoreBackup(evt){
             lat:p.coords?.lat??null, lng:p.coords?.lng??null
           },{onConflict:'user_id,name'});
         }
+      }
+      // Restore pay settings so PPV mode + per-category rates survive a restore
+      // (per-visit pay rides along on the visit rows above). Merge rather than
+      // clobber the rest of the current account's settings. Older backups
+      // without these fields leave the current settings untouched.
+      if(data.payMode || data.catPay){
+        if(data.payMode) payMode = data.payMode==='ppv' ? 'ppv' : 'salaried';
+        if(data.catPay && typeof data.catPay==='object') catPay = {...catPay, ...data.catPay};
+        await saveUserSettings();
       }
       await loadAllDataFromSupabase();
       closeAllPanels();renderAll();
@@ -1448,6 +1511,13 @@ function buildSettingsRows(){
       ${isCustom?`<button class="setting-remove-btn" onclick="removeCustomCategory('${k}')" title="Remove category">✕</button>`:''}
     </div>`;
   }).join('');
+  const payContainer=document.getElementById('settings-pay-rows');
+  payContainer.innerHTML=Object.keys(catPoints).map(k=>
+    `<div class="setting-row">
+      <span class="setting-name">${escAttr(CAT_FULL[k]||k)}</span>
+      <div class="setting-pay-wrap"><span class="setting-pay-sign">$</span><input type="number" class="setting-pay-input" id="spay-${k}" value="${(Number(catPay[k])||0).toFixed(2)}" min="0" max="10000" step="1"></div>
+    </div>`).join('');
+  applyPayModeUI();
   const typesEl=document.getElementById('settings-types-rows');
   const customTypeKeys=Object.keys(customTypes||{});
   typesEl.innerHTML = customTypeKeys.length
@@ -1507,9 +1577,30 @@ async function saveSettings(){
   Object.keys(catPoints).forEach(k=>{
     const v=parseFloat(document.getElementById('spt-'+k)?.value);
     if(!isNaN(v)&&v>=0){ catPoints[k]=v; if(customCats[k]) customCats[k].points=v; }
+    const p=parseFloat(document.getElementById('spay-'+k)?.value);
+    if(!isNaN(p)&&p>=0){ catPay[k]=p; }
   });
   await saveUserSettings();
   buildCatDropdown();closeAllPanels();renderAll();showToast('✓ Settings saved!');
+}
+// Reflect the current pay mode across the UI: Settings toggle + rate editor
+// visibility, and the visit form's pay field. renderStats handles the header
+// earnings strip, and renderList/renderPoints/summary handle their own bits.
+function setPayMode(mode){
+  payMode = mode==='ppv' ? 'ppv' : 'salaried';
+  applyPayModeUI();
+  updatePtsPreview();
+  saveUserSettings();
+  renderAll();
+}
+function applyPayModeUI(){
+  const ppv=isPPV();
+  document.getElementById('pay-btn-salaried')?.classList.toggle('active',!ppv);
+  document.getElementById('pay-btn-ppv')?.classList.toggle('active',ppv);
+  const sec=document.getElementById('settings-pay-section');
+  if(sec) sec.style.display=ppv?'block':'none';
+  const wrap=document.getElementById('pay-field-wrap');
+  if(wrap) wrap.style.display=ppv?'block':'none';
 }
 async function resetSettings(){
   catPoints={...DEFAULT_POINTS};weeklyTarget=DEFAULT_WEEKLY_TARGET;
@@ -1540,6 +1631,23 @@ function buildTypeDropdown(){
   if(cur) sel.value=cur;
 }
 function getPoints(v){return catPoints[v.cat]||0}
+
+// ─── PAY (Paid-Per-Visit mode) ────────────────────────────────────────────────
+function isPPV(){return payMode==='ppv';}
+// A visit's dollar value: its per-visit override if set, else the category's
+// default rate (catPay), else 0. Skipped visits are excluded from totals below,
+// same as points.
+// Number() guards against a string sneaking through the jsonb cat_pay column.
+function getPay(v){return Number(v.pay!=null ? v.pay : catPay[v.cat])||0;}
+function fmtMoney(n){return '$'+(Number(n)||0).toFixed(2);}
+function calcDayPay(dateStr){
+  return visits.filter(v=>v.date===dateStr&&v.status!=='skipped').reduce((s,v)=>s+getPay(v),0);
+}
+function calcWeekPay(off){
+  const{monday,sunday}=getWeekBounds(off);
+  return visits.filter(v=>{const d=new Date(v.date+'T12:00:00');return d>=monday&&d<=sunday&&v.status!=='skipped';})
+    .reduce((s,v)=>s+getPay(v),0);
+}
 
 // Merge a user's saved custom categories/types into the label + points maps so
 // every existing lookup (dropdowns, cards, exports) picks them up automatically.
@@ -1598,6 +1706,10 @@ async function removeCustomType(k){
 function updatePtsPreview(){
   const cat=document.getElementById('f-cat').value;
   document.getElementById('pts-preview-val').textContent=(catPoints[cat]||0).toFixed(2);
+  // In PPV mode the pay field's placeholder shows the category default, so a
+  // blank field visibly means "use the default rate" (see getPay / submit).
+  const payInp=document.getElementById('f-pay');
+  if(payInp) payInp.placeholder=(Number(catPay[cat])||0).toFixed(2);
 }
 
 // ─── HAVERSINE ────────────────────────────────────────────────────────────────
@@ -2080,6 +2192,10 @@ async function submitVisitForm(){
   const cat=document.getElementById('f-cat').value;
   const notes=document.getElementById('f-notes').value.trim();
   const pts=(catPoints[cat]||0).toFixed(2);
+  // Pay override: blank/invalid/negative = null = fall back to the category default.
+  const payRaw=document.getElementById('f-pay').value.trim();
+  const payNum=parseFloat(payRaw);
+  const payVal=(payRaw===''||isNaN(payNum)||payNum<0)?null:payNum;
 
   let coords=window._pendingCoords||null;
   window._pendingCoords=null;
@@ -2100,9 +2216,9 @@ async function submitVisitForm(){
     const v=visits.find(v=>v.id===parseInt(editId));
     if(!v){showToast('Visit not found');closeAllPanels();return;}
     const finalCoords=coords||v.coords;
-    Object.assign(v,{name,addr,date,time,dur,type,cat,notes,coords:finalCoords});
+    Object.assign(v,{name,addr,date,time,dur,type,cat,notes,pay:payVal,coords:finalCoords});
     await sb.from('visits').update({
-      name,addr,date,time,dur,type,cat,notes,
+      name,addr,date,time,dur,type,cat,notes,pay:payVal,
       lat:finalCoords?.lat??null, lng:finalCoords?.lng??null
     }).eq('id',v.id).eq('user_id',currentUser.id);
     await upsertSavedPatient(name,addr,finalCoords);
@@ -2112,7 +2228,7 @@ async function submitVisitForm(){
     const num=visits.filter(x=>x.date===date).length+1;
     const { data, error } = await sb.from('visits').insert({
       user_id:currentUser.id, num, name, addr, date, time, dur, type, cat, notes,
-      status:'pending', lat:coords?.lat??null, lng:coords?.lng??null
+      pay:payVal, status:'pending', lat:coords?.lat??null, lng:coords?.lng??null
     }).select().single();
     if(error || !data){
       showToast('⚠️ Could not save visit — check your connection and try again');
@@ -2121,7 +2237,8 @@ async function submitVisitForm(){
     visits.push({
       id:data.id, num:data.num, name:data.name, addr:data.addr, date:data.date,
       time:data.time, dur:data.dur, type:data.type, cat:data.cat, notes:data.notes||'',
-      status:data.status, coords:(data.lat!=null&&data.lng!=null)?{lat:data.lat,lng:data.lng}:null
+      status:data.status, pay:data.pay!=null?Number(data.pay):null,
+      coords:(data.lat!=null&&data.lng!=null)?{lat:data.lat,lng:data.lng}:null
     });
     await upsertSavedPatient(name,addr,coords);
     resetForm();closeAllPanels();
@@ -2129,7 +2246,7 @@ async function submitVisitForm(){
   }
 }
 function resetForm(){
-  ['f-name','f-addr','f-notes','f-edit-id'].forEach(id=>document.getElementById(id).value='');
+  ['f-name','f-addr','f-notes','f-edit-id','f-pay'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('addr-dropdown').classList.remove('open');
   document.getElementById('name-dropdown').classList.remove('open');
   document.getElementById('geo-confirm-box').classList.remove('show');
@@ -2148,9 +2265,11 @@ function openEditPanel(id){
   document.getElementById('f-type').value=v.type;
   document.getElementById('f-cat').value=v.cat;
   document.getElementById('f-notes').value=v.notes||'';
+  document.getElementById('f-pay').value=v.pay!=null?v.pay:'';
   document.getElementById('geo-confirm-box').classList.remove('show');
   document.getElementById('geo-warn-box').classList.remove('show');
   window._pendingCoords=v.coords||null;
+  applyPayModeUI();
   updatePtsPreview();
   document.getElementById('panel-title-text').textContent='Edit Patient Visit';
   document.getElementById('f-submit-btn').textContent='✓ Save Changes';
@@ -2634,6 +2753,7 @@ function renderList(){
             <span class="tag tag-type">${escAttr(TYPE_LABELS[v.type]||v.type)}</span>
             <span class="tag tag-visit">${escAttr(CAT_LABELS[v.cat]||v.cat)}</span>
             ${dist?`<span class="tag tag-miles">${dist}</span>`:''}
+            ${isPPV()?`<span class="tag tag-pay">${fmtMoney(getPay(v))}</span>`:''}
           </div>
         </div>
         <div class="card-pts-badge"><div class="pts-circle"><span class="pts-num">${pts}</span><span class="pts-word">pts</span></div></div>
@@ -2669,6 +2789,36 @@ function renderStats(){
   fill.className='weekly-bar-fill'+(pct<50?' warn':'');
   document.getElementById('weekly-bar-pct').textContent=pct.toFixed(0)+'%';
   document.getElementById('weekly-bar-lbl').textContent=`Weekly target: ${weeklyTarget} pts`;
+
+  // Forecast: turn "points remaining" into concrete visit counts.
+  const fc=document.getElementById('week-forecast');
+  if(fc){
+    if(remain<=0){ fc.textContent=''; fc.style.display='none'; }
+    else{
+      // Frame the gap as counts of the lowest- and highest-value categories
+      // (derived, so it survives renamed/removed/custom categories).
+      let minK=null,minV=Infinity,maxK=null,maxV=0;
+      Object.keys(catPoints).forEach(k=>{ const val=catPoints[k]||0; if(val<=0) return;
+        if(val<minV){minV=val;minK=k;} if(val>maxV){maxV=val;maxK=k;} });
+      const parts=[];
+      if(minK) parts.push(`${Math.ceil(remain/minV)} ${CAT_LABELS[minK]||minK}`);
+      if(maxK && maxK!==minK) parts.push(`${Math.ceil(remain/maxV)} ${CAT_LABELS[maxK]||maxK}`);
+      fc.textContent = parts.length ? `${remain.toFixed(2)} to go — about ${parts.join(' or ')}` : '';
+      fc.style.display = parts.length ? 'block' : 'none';
+    }
+  }
+
+  // PPV earnings strip (day + week dollars). Hidden entirely when salaried.
+  const es=document.getElementById('earnings-strip');
+  if(es){
+    if(isPPV()){
+      const dayLbl=listSelectedDate===todayStr()?'Today':'Day';
+      es.innerHTML=`<span class="es-item"><span class="es-lbl">${dayLbl}</span><span class="es-val">${fmtMoney(calcDayPay(listSelectedDate))}</span></span><span class="es-item"><span class="es-lbl">This week</span><span class="es-val">${fmtMoney(calcWeekPay(0))}</span></span>`;
+      es.style.display='flex';
+    } else {
+      es.style.display='none';
+    }
+  }
 }
 
 // ─── RENDER POINTS ────────────────────────────────────────────────────────────
@@ -2676,6 +2826,7 @@ function shiftWeek(dir){viewingWeekOffset+=dir;renderPoints();}
 function renderPoints(){
   const{monday,sunday}=getWeekBounds(viewingWeekOffset);
   const weekPts=calcWeekPoints(viewingWeekOffset);
+  const weekPay=calcWeekPay(viewingWeekOffset);
   const remain=Math.max(0,weeklyTarget-weekPts);
   const pct=Math.min(100,(weekPts/weeklyTarget)*100);
   const fmt={month:'short',day:'numeric'};
@@ -2693,6 +2844,7 @@ function renderPoints(){
   const daysHtml=days.map(ds=>{
     const items=byDay[ds];
     const dp=items.reduce((s,it)=>it.kind==='visit'?s+(it.data.status!=='skipped'?getPoints(it.data):0):s+it.data.pts,0);
+    const dpay=isPPV()?calcDayPay(ds):0;
     const rows=items.map(it=>{
       if(it.kind==='visit'){
         const v=it.data;
@@ -2707,7 +2859,7 @@ function renderPoints(){
         return `<div class="day-visit-row"><span class="dv-extra-icon">⭐</span><div class="dv-name">${escAttr(e.label)}</div><div class="dv-chips"><span class="dv-chip dv-pts">${e.pts}</span></div></div>`;
       }
     }).join('');
-    return `<div class="day-card"><div class="day-card-header tap" onclick="selectDateAndGoToList('${ds}')" title="Open this day in Visits"><h3>${getDayLabel(ds)}</h3><span class="day-pts-pill">${dp.toFixed(2)} pts</span></div><div>${rows}</div></div>`;
+    return `<div class="day-card"><div class="day-card-header tap" onclick="selectDateAndGoToList('${ds}')" title="Open this day in Visits"><h3>${getDayLabel(ds)}</h3><span class="day-card-pills">${isPPV()?`<span class="day-pay-pill">${fmtMoney(dpay)}</span>`:''}<span class="day-pts-pill">${dp.toFixed(2)} pts</span></span></div><div>${rows}</div></div>`;
   }).join('');
 
   const refRows=Object.keys(catPoints).map(k=>`<div class="pts-ref-row"><span class="pts-ref-name">${escAttr(CAT_FULL[k]||k)}</span><span class="pts-ref-val">${(catPoints[k]||0).toFixed(2)}</span></div>`).join('');
@@ -2724,6 +2876,7 @@ function renderPoints(){
       <div class="wtc-nums"><span class="wtc-earned">${weekPts.toFixed(2)}</span><span class="wtc-sep">/</span><span class="wtc-target">${weeklyTarget}</span><span class="wtc-unit">pts</span></div>
       <div class="wtc-track"><div class="wtc-fill ${pct<50?'warn':''}" style="width:${pct.toFixed(1)}%"></div></div>
       <div class="wtc-row"><span class="wtc-remain">${weekPts>=weeklyTarget?'🎉 Target reached! +'+(weekPts-weeklyTarget).toFixed(2)+' over':'⬜ '+remain.toFixed(2)+' pts to go'}</span><span class="wtc-pct">${pct.toFixed(0)}%</span></div>
+      ${isPPV()?`<div class="wtc-earned-row"><span class="wtc-earned-lbl">Earned this week</span><span class="wtc-earned-amt">${fmtMoney(weekPay)}</span></div>`:''}
     </div>
     ${days.length?daysHtml:'<div class="day-card"><div class="day-card-header"><h3 style="color:var(--text-muted)">No visits this week</h3></div></div>'}
     <div class="pts-ref-card"><div class="pts-ref-header">⭐ Other productivity points</div>${extraListHtml}</div>
@@ -2739,12 +2892,15 @@ function renderSummary(){
   const skip=visits.filter(v=>v.date===listSelectedDate&&v.status==='skipped').length;
   const todayPts=calcDayPoints(listSelectedDate);
   const weekPts=calcWeekPoints(0);
+  const ppv=isPPV();
+  const dayPay=calcDayPay(listSelectedDate);
+  const weekPay=calcWeekPay(0);
   const breakdown=sorted.map((v,i)=>{
     const li=legInfoFor(v);
     const dist=li?li.miles.toFixed(1):'-';
     return `<div class="summary-row tap" onclick="openEditPanel(${v.id})" title="Tap to edit">
       <span class="s-label"><span class="visit-cat-chip">${escAttr(CAT_LABELS[v.cat]||v.cat)}</span><span class="visit-type-chip">${escAttr(TYPE_LABELS[v.type]||v.type)}</span>${escAttr(v.name)}</span>
-      <span class="s-val" style="display:flex;gap:6px;align-items:center">${dist!=='-'?dist+' mi':'—'}<span style="background:var(--purple-bg);color:var(--purple);font-size:10px;font-weight:700;padding:2px 6px;border-radius:20px">⭐${getPoints(v)}</span></span>
+      <span class="s-val" style="display:flex;gap:6px;align-items:center">${dist!=='-'?dist+' mi':'—'}${ppv?`<span style="background:var(--green-bg);color:var(--green);font-size:10px;font-weight:700;padding:2px 6px;border-radius:20px">${fmtMoney(getPay(v))}</span>`:''}<span style="background:var(--purple-bg);color:var(--purple);font-size:10px;font-weight:700;padding:2px 6px;border-radius:20px">⭐${getPoints(v)}</span></span>
     </div>`;
   }).join('');
   const tf=new Date(listSelectedDate+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
@@ -2754,6 +2910,8 @@ function renderSummary(){
       <div class="mileage-sub">${milesAreRoad()?'Driving mileage (round trip, road distance)':'Estimated total mileage (round trip, straight-line)'}</div>
       <div class="summary-row"><span class="s-label">This day's points</span><span class="s-val" style="color:var(--purple)">⭐ ${todayPts.toFixed(2)}</span></div>
       <div class="summary-row"><span class="s-label">Week points</span><span class="s-val" style="color:var(--purple)">⭐ ${weekPts.toFixed(2)} / ${weeklyTarget}</span></div>
+      ${ppv?`<div class="summary-row"><span class="s-label">This day's pay</span><span class="s-val" style="color:var(--green)">${fmtMoney(dayPay)}</span></div>
+      <div class="summary-row"><span class="s-label">Week pay</span><span class="s-val" style="color:var(--green)">${fmtMoney(weekPay)}</span></div>`:''}
       <div class="summary-row"><span class="s-label">Patients this day</span><span class="s-val">${sorted.length}</span></div>
       <div class="summary-row"><span class="s-label">Completed</span><span class="s-val" style="color:var(--teal)">${done}</span></div>
       <div class="summary-row"><span class="s-label">Pending</span><span class="s-val" style="color:var(--amber)">${pend}</span></div>
@@ -2768,13 +2926,17 @@ function exportSummary(){
   const sorted=routeVisits(listSelectedDate);const mi=calcTotalMiles();const d=new Date(listSelectedDate+'T12:00:00');
   const todayPts=calcDayPoints(listSelectedDate);
   const weekPts=calcWeekPoints(0);
+  const ppv=isPPV();
+  const dayPay=calcDayPay(listSelectedDate);
+  const weekPay=calcWeekPay(0);
+  const payLine=ppv?` | Pay: ${fmtMoney(dayPay)}`:'';
   let txt=`ROUNDLY — DAILY ROUTE SUMMARY\n${d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}\n`;
   txt+=`Starting from: ${homeCoords.label}\nMileage: ${mi.toFixed(1)} mi (${milesAreRoad()?'road distance':'straight-line estimate'})\n`;
-  txt+=`This day: ${todayPts.toFixed(2)} pts | Week: ${weekPts.toFixed(2)} / ${weeklyTarget} pts\n\nVISITS:\n${'─'.repeat(50)}\n`;
+  txt+=`This day: ${todayPts.toFixed(2)} pts${payLine} | Week: ${weekPts.toFixed(2)} / ${weeklyTarget} pts${ppv?` | ${fmtMoney(weekPay)}`:''}\n\nVISITS:\n${'─'.repeat(50)}\n`;
   sorted.forEach((v,i)=>{
     const li=legInfoFor(v);
     const dist=li&&!li.fromBase?li.miles.toFixed(1)+' mi':'';
-    txt+=`\n${visitNumber(v)}. ${v.name}  [${v.status.toUpperCase()}]\n   ${v.addr}\n   ${v.time} | ${v.dur} min | ${TYPE_LABELS[v.type]||v.type}\n   ${CAT_FULL[v.cat]||v.cat} | ${getPoints(v)} pts\n`;
+    txt+=`\n${visitNumber(v)}. ${v.name}  [${v.status.toUpperCase()}]\n   ${v.addr}\n   ${v.time} | ${v.dur} min | ${TYPE_LABELS[v.type]||v.type}\n   ${CAT_FULL[v.cat]||v.cat} | ${getPoints(v)} pts${ppv?` | ${fmtMoney(getPay(v))}`:''}\n`;
     if(dist)txt+=`   Drive from prev: ${dist}\n`;
     if(v.notes)txt+=`   Notes: ${v.notes}\n`;
   });
@@ -2783,7 +2945,21 @@ function exportSummary(){
     txt+=`\nOTHER PRODUCTIVITY:\n${'─'.repeat(50)}\n`;
     dayExtras.forEach(e=>{txt+=`${e.label}: ${e.pts} pts\n`;});
   }
-  txt+=`\n${'─'.repeat(50)}\nTotal: ${mi.toFixed(1)} mi | This day: ${todayPts.toFixed(2)} pts | Week: ${weekPts.toFixed(2)} / ${weeklyTarget} pts\n`;
+  txt+=`\n${'─'.repeat(50)}\nTotal: ${mi.toFixed(1)} mi | This day: ${todayPts.toFixed(2)} pts${payLine} | Week: ${weekPts.toFixed(2)} / ${weeklyTarget} pts\n`;
+  // On mobile, hand off to the native share sheet (Messages, email, Files…) so
+  // the summary is one tap from where it needs to go. Desktop keeps the .txt
+  // download — gate on user agent, since navigator.share also exists on
+  // desktop Chrome/Edge where a download is the expected behavior.
+  const isMobile=/Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent);
+  if(isMobile && navigator.share){
+    navigator.share({title:`Roundly — ${listSelectedDate}`, text:txt})
+      .then(()=>showToast('📄 Shared!'))
+      .catch(err=>{ if(err && err.name==='AbortError') return; downloadSummaryTxt(txt); });
+    return;
+  }
+  downloadSummaryTxt(txt);
+}
+function downloadSummaryTxt(txt){
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'text/plain'}));
   a.download=`roundly_${listSelectedDate}.txt`;a.click();
   showToast('📄 Exported!');
@@ -2799,6 +2975,7 @@ function openAddPanel(){
   document.getElementById('f-time').value='09:00';
   document.getElementById('f-dur').value=30;
   document.getElementById('f-cat').selectedIndex=0;
+  applyPayModeUI();
   updatePtsPreview();
   document.getElementById('add-panel').classList.add('open');
   document.getElementById('overlay').classList.add('open');

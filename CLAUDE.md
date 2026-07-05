@@ -108,6 +108,21 @@ roundly/
 
 ---
 
+## MAKING A SCHEMA CHANGE
+
+Each contributor links the CLI once per machine, then applies changes as tracked migrations:
+
+```
+npx supabase login                                            # once per machine, own access token
+npx supabase link --project-ref wxhjfeorwwvruibuvgta -p <db password>   # once per machine
+npx supabase migration new <short_description>                # creates supabase/migrations/<ts>_<name>.sql
+# edit the generated SQL file
+npx supabase db push                                           # applies it to the shared remote DB
+git add supabase/migrations/ && git commit && git push          # so the change is tracked in history
+```
+
+---
+
 ## COLLABORATORS
 
 - **Bre Huntzinger** (brehuntzinger@gmail.com, GitHub `brehuntz`) — primary developer, home health RN, Charlotte NC

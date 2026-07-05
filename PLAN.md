@@ -5,7 +5,11 @@ Execution plan for reducing daily-use friction. Written for an implementing sess
 ## Progress log
 - **Shipped:** PPV feature (see "Slice PPV") + Slice 2 (points forecast + share-sheet export). Migration `20260705120000_ppv_mode.sql` applied to remote DB (verified: `visits.pay`, `user_settings.pay_mode`/`cat_pay` resolve via PostgREST). High-effort self-review run (8 finder angles); fixes applied: restore now re-applies `payMode`/`catPay`; export share-sheet gated to mobile UA so desktop keeps `.txt`; negative per-visit pay clamped to null; `cat_pay` jsonb reads coerced with `Number()`; forecast generalized off the hardcoded `routine` key.
 - **Deferred cleanup (non-blocking):** `calcDayPay`/`calcWeekPay` duplicate the day/week visit-filter predicates already in `calcDayPoints`/`calcWeekVisitPoints` — a shared `visitsForDay/Week` helper would DRY all four. Left as-is to match the existing points helpers; revisit if that area is touched again.
-- Slices 1, 3, 4, 6, 7 and the gate remain open.
+- **Shipped since:** Slice 1 (saved-patient defaults) and Slice 3 (next-stop hero card).
+- **Gate answered (Bre, July 2026):**
+  1. *Schedule format* → arrives **piecemeal and unpredictably** — by phone call, email, or a no-screenshot software; a single item may have name+address but **not** the visit type, and never the whole day at once. **→ Bulk-paste import (Slice 5) is NOT viable as designed** (there is no copy-able full-day list). Superseded by a future "quick-add / ease-of-use" workshop (see Slice 5, reframed).
+  2. *OSRM mileage acceptance* → **leave mileage as-is for now.** No GPS/mileage work. Revisit only if the app expands.
+- **Open:** Slice 4 (swipe/targets/delete-undo), Slice 6 (proximity done), Slice 7 (offline). Slice 5 reframed as a later ease-of-use workshop.
 
 ---
 
@@ -180,38 +184,26 @@ Audit `.card-action-btn` and bottom-nav buttons to min-height ≥ 44px at phone 
 
 ---
 
-## GATE — two questions for Bre (answer before Slice 5)
+## GATE — two questions for Bre — ANSWERED (July 2026)
 
-1. **What does her schedule actually look like each morning?** (agency EMR screen? text? email? paper?) → decides whether Slice 5's paste-parser matches reality, or should target iOS Live-Text-from-photo text instead, or should be dropped.
-2. **Does her agency accept the app's OSRM road mileage for reimbursement as-is?** → if yes, no further mileage work is needed, ever (confirms cutting the GPS recorder was right). If no, find out what evidence they need before designing anything.
-
-Record the answers here:
-- Schedule format: _(unanswered)_
-- OSRM mileage accepted: _(unanswered)_
+1. **Schedule format:** arrives **piecemeal and unpredictably** — by phone call, email, or a no-screenshot software. A single notification may carry name + address but often **not** the visit type, and she **never** gets the whole day as one list. → There is no copy-able full-day list to paste, so **bulk-paste import is not viable as designed** (see reframed Slice 5).
+2. **OSRM mileage accepted:** **leave as-is for now.** No GPS/mileage work. Revisit only if the app expands.
 
 ---
 
-## Slice 5 — Bulk paste import (CONDITIONAL on gate Q1)
+## Slice 5 — REFRAMED: piecemeal quick-add / ease-of-use workshop (LATER)
 
-**Goal:** paste the day's list → review parsed visits → confirm → all inserted. Kills per-visit typing on heavy days.
+**Status:** [ ] deferred — needs a design workshop with Bre before any build.
 
-**Status:** [ ] blocked on gate
+Original bulk-paste plan is **dropped**: the day never arrives as one pasteable list. The real problem to solve is **fast capture of a single visit the moment a call/email/notification comes in**, often with partial info (name + address, no visit type yet), to be completed later.
 
-### 5.1 Implementation sketch (adjust to the real input format from the gate)
+Design directions to workshop with Bre (do NOT build until scoped with her):
+- **Fast partial add:** add a visit with just name + address in ~2 taps; visit type/category fillable later. Consider a `pending-details` state or making type optional at creation.
+- **Quick capture from a notification:** e.g. a stripped-down "quick add" that only asks name + address, defaults everything else, and drops it onto today (or a chosen day).
+- **Complete-later nudge:** surface visits missing their type/category so nothing falls through.
+- Lean on Slice 1 (saved-patient defaults) — a repeat patient already back-fills type/category/duration from one name tap.
 
-- New "📋 Paste day's list" button inside the add panel (`openAddPanel` area), opening a textarea panel.
-- Parser: split lines; per line extract a time (`\b\d{1,2}(:\d{2})?\s*(am|pm)?\b` heuristics), then split remainder on comma/dash/tab into name + address. Unparseable lines pass through as name-only rows.
-- **Mandatory review table** before any insert: editable name/address/time/category per row, per-row remove. Never blind-insert (real patient data).
-- On confirm: geocode each row **sequentially with ~1s spacing** via existing `geocodeSearch()` — Photon is a free service; do NOT fire N parallel requests. Rows whose name matches a saved patient skip geocoding and reuse stored coords + cat/type/dur (Slice 1 data).
-- Insert through the same logic as `submitVisitForm()`'s insert branch (respecting the `num = count+1` sequence across the batch, incrementing locally as the batch grows), then `upsertSavedPatient` for each, one `renderAll()` at the end.
-- Show progress ("Adding 3 of 6…") since geocoding is throttled.
-
-### 5.2 Verify
-
-- [ ] Paste a 6-line list in the real-world format → review table correct → confirm → 6 visits with pins, correct `num` sequence, correct points.
-- [ ] A line with a garbage address inserts without a pin and shows the existing geo warning pattern.
-- [ ] Saved-patient rows fill cat/type/dur automatically.
-- [ ] Brace/paren/div validation.
+Bre said ease-of-use is likely the **big** win; treat this as its own future initiative, not a quick slice.
 
 ---
 

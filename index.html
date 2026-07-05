@@ -222,6 +222,7 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
 .nsh-addr{font-size:13px;opacity:0.95;margin-top:3px;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
 .nsh-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .nsh-chip{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;background:rgba(255,255,255,0.22);color:#fff;white-space:nowrap}
+.nsh-chip-todo{background:#fff;color:var(--amber)}
 .nsh-actions{display:flex;gap:10px;margin-top:14px}
 .nsh-btn{flex:1;min-height:52px;border:none;border-radius:var(--radius-md);font-size:15px;font-weight:800;cursor:pointer}
 .nsh-btn:active{transform:scale(0.98)}
@@ -248,6 +249,9 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
 .tag-dur{background:var(--gray-100);color:var(--gray-800)}
 .tag-miles{background:var(--teal-bg);color:var(--teal)}
 .tag-pay{background:var(--green-bg);color:var(--green)}
+.tag-todo{background:var(--amber-bg);color:var(--amber)}
+.details-nudge{background:var(--amber-bg);color:var(--amber);border-radius:var(--radius-md);padding:10px 14px;font-size:13px;font-weight:800;text-align:center;cursor:pointer;box-shadow:var(--shadow-sm)}
+.details-nudge:active{filter:brightness(0.97)}
 .card-pts-badge{flex-shrink:0}
 .pts-circle{width:40px;height:40px;border-radius:50%;background:var(--purple-bg);display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:inset 0 0 0 1px rgba(108,52,131,0.18),0 1px 3px rgba(0,0,0,0.08)}
 .pts-num{font-size:14px;font-weight:700;color:var(--purple);line-height:1}
@@ -375,6 +379,12 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
 .fab:active{transform:scale(0.93)}
 .fab-extra{position:fixed;bottom:calc(64px + var(--safe-bottom));left:16px;width:52px;height:52px;border-radius:50%;background:var(--purple);color:white;border:none;font-size:22px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.22),0 6px 18px rgba(0,0,0,0.26);display:flex;align-items:center;justify-content:center;z-index:100;transition:transform 0.1s}
 .fab-extra:active{transform:scale(0.93)}
+.fab-quick{position:fixed;bottom:calc(128px + var(--safe-bottom));right:16px;width:52px;height:52px;border-radius:50%;background:var(--white);color:var(--accent);border:none;font-size:24px;cursor:pointer;box-shadow:var(--shadow-md);display:flex;align-items:center;justify-content:center;z-index:100;transition:transform 0.1s}
+.fab-quick:active{transform:scale(0.93)}
+/* Quick-add mode: hide the optional fields, show the expander to full add */
+#add-panel.quick .qopt{display:none!important}
+.quick-expand-link{display:none;width:100%;padding:10px;border:none;background:none;color:var(--accent-mid);font-size:13px;font-weight:700;cursor:pointer;margin-bottom:2px}
+#add-panel.quick .quick-expand-link{display:block}
 
 /* ===== BOTTOM NAV ===== */
 .bottom-nav{display:flex;border-top:none;background:var(--white);padding-bottom:var(--safe-bottom);flex-shrink:0;box-shadow:0 -6px 24px rgba(93,64,42,0.10);position:relative;z-index:10}
@@ -538,6 +548,7 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
 @media(min-width:481px){
   #app{box-shadow:0 0 60px rgba(93,64,42,0.12)}
   .fab{right:calc(50% - 226px)}
+  .fab-quick{right:calc(50% - 226px)}
   .fab-extra{left:calc(50% - 226px)}
 }
 </style>
@@ -738,6 +749,7 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
 </div>
 
 <!-- FABs -->
+<button class="fab-quick" onclick="openQuickAddPanel()" aria-label="Quick add visit" title="Quick add — name &amp; address only, fill in the rest later">⚡</button>
 <button class="fab" onclick="openAddPanel()" aria-label="Add patient visit">+</button>
 <button class="fab-extra" onclick="openExtraPanel()" aria-label="Add other productivity points" title="Add meeting/education points">⭐</button>
 
@@ -776,7 +788,7 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
         <input class="form-input" id="f-time" type="time" value="09:00">
       </div>
     </div>
-    <div class="form-row">
+    <div class="form-row qopt">
       <div>
         <div class="field-label">Duration (min)</div>
         <input class="form-input" id="f-dur" type="number" value="30" min="5" max="240">
@@ -797,7 +809,7 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
         </div>
       </div>
     </div>
-    <div>
+    <div class="qopt">
       <div class="field-label">Visit category (points auto-filled)</div>
       <div class="select-wrap">
         <select class="form-select" id="f-cat" onchange="updatePtsPreview()">
@@ -805,19 +817,20 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
         </select>
       </div>
     </div>
-    <div class="pts-preview">
+    <div class="pts-preview qopt">
       <span class="pts-preview-lbl">⭐ Points for this visit</span>
       <span class="pts-preview-val" id="pts-preview-val">—</span>
     </div>
-    <div id="pay-field-wrap" style="display:none">
+    <div id="pay-field-wrap" class="qopt" style="display:none">
       <div class="field-label">Pay for this visit ($)</div>
       <div class="pay-input-wrap"><span class="pay-input-sign">$</span><input class="form-input pay-input" id="f-pay" type="number" min="0" max="10000" step="1" placeholder="0.00"></div>
       <div class="pay-input-hint">Leave blank to use this category's default rate.</div>
     </div>
-    <div>
+    <div class="qopt">
       <div class="field-label">Notes (optional)</div>
       <input class="form-input" id="f-notes" type="text" placeholder="e.g. gate code, call ahead…">
     </div>
+    <button class="quick-expand-link" id="quick-expand-btn" onclick="applyQuickMode(false)">＋ Add full details now</button>
     <button class="btn-add-submit" id="f-submit-btn" onclick="submitVisitForm()">+ Add to Route</button>
     <button class="btn-reset-settings" id="f-delete-btn" style="display:none;color:var(--red);border-color:var(--red-bg)" onclick="deleteFromEditPanel()">🗑️ Delete this visit</button>
   </div>
@@ -1208,7 +1221,7 @@ async function loadAllDataFromSupabase(){
   visits = (visitsRes.data||[]).map(r=>({
     id:r.id, num:r.num, name:r.name, addr:r.addr, date:r.date, time:r.time,
     dur:r.dur, type:r.type, cat:r.cat, notes:r.notes||'', status:r.status,
-    pay: r.pay!=null ? Number(r.pay) : null,
+    pay: r.pay!=null ? Number(r.pay) : null, needsDetails: !!r.needs_details,
     coords: (r.lat!=null && r.lng!=null) ? {lat:r.lat,lng:r.lng} : null
   }));
   extraPoints = (extraRes.data||[]).map(r=>({id:r.id,label:r.label,date:r.date,pts:Number(r.pts)}));
@@ -1450,7 +1463,7 @@ async function restoreBackup(evt){
         const rows=data.visits.map(v=>({
           user_id:uid, num:v.num||1, name:v.name, addr:v.addr, date:v.date, time:v.time,
           dur:v.dur, type:v.type, cat:v.cat, notes:v.notes||'', status:v.status||'pending',
-          pay:v.pay??null, lat:v.coords?.lat??null, lng:v.coords?.lng??null
+          pay:v.pay??null, needs_details:v.needsDetails??false, lat:v.coords?.lat??null, lng:v.coords?.lng??null
         }));
         await sb.from('visits').insert(rows);
       }
@@ -2243,13 +2256,17 @@ async function submitVisitForm(){
     showToast('⚠️ Could not locate that address — visit saved without map pin');
   }
 
+  // Quick-add captures partial info → flag needs_details. Saving through the
+  // full edit form (any edit) reviews and clears the flag.
+  const quick=document.getElementById('add-panel').classList.contains('quick');
+
   if(editId){
     const v=visits.find(v=>v.id===parseInt(editId));
     if(!v){showToast('Visit not found');closeAllPanels();return;}
     const finalCoords=coords||v.coords;
-    Object.assign(v,{name,addr,date,time,dur,type,cat,notes,pay:payVal,coords:finalCoords});
+    Object.assign(v,{name,addr,date,time,dur,type,cat,notes,pay:payVal,needsDetails:false,coords:finalCoords});
     await sb.from('visits').update({
-      name,addr,date,time,dur,type,cat,notes,pay:payVal,
+      name,addr,date,time,dur,type,cat,notes,pay:payVal,needs_details:false,
       lat:finalCoords?.lat??null, lng:finalCoords?.lng??null
     }).eq('id',v.id).eq('user_id',currentUser.id);
     await upsertSavedPatient(name,addr,finalCoords,cat,type,dur);
@@ -2259,7 +2276,7 @@ async function submitVisitForm(){
     const num=visits.filter(x=>x.date===date).length+1;
     const { data, error } = await sb.from('visits').insert({
       user_id:currentUser.id, num, name, addr, date, time, dur, type, cat, notes,
-      pay:payVal, status:'pending', lat:coords?.lat??null, lng:coords?.lng??null
+      pay:payVal, needs_details:quick, status:'pending', lat:coords?.lat??null, lng:coords?.lng??null
     }).select().single();
     if(error || !data){
       showToast('⚠️ Could not save visit — check your connection and try again');
@@ -2268,12 +2285,12 @@ async function submitVisitForm(){
     visits.push({
       id:data.id, num:data.num, name:data.name, addr:data.addr, date:data.date,
       time:data.time, dur:data.dur, type:data.type, cat:data.cat, notes:data.notes||'',
-      status:data.status, pay:data.pay!=null?Number(data.pay):null,
+      status:data.status, pay:data.pay!=null?Number(data.pay):null, needsDetails:!!data.needs_details,
       coords:(data.lat!=null&&data.lng!=null)?{lat:data.lat,lng:data.lng}:null
     });
     await upsertSavedPatient(name,addr,coords,cat,type,dur);
     resetForm();closeAllPanels();
-    showToast(`✓ ${name} added — ${pts} pts`);renderAll();
+    showToast(quick?`⚡ ${name} added — add details when ready`:`✓ ${name} added — ${pts} pts`);renderAll();
   }
 }
 function resetForm(){
@@ -2287,6 +2304,7 @@ function resetForm(){
 function openEditPanel(id){
   const v=visits.find(v=>v.id===id);
   if(!v) return;
+  document.getElementById('add-panel').classList.remove('quick');
   document.getElementById('f-edit-id').value=v.id;
   document.getElementById('f-name').value=v.name;
   document.getElementById('f-addr').value=v.addr;
@@ -2779,10 +2797,14 @@ function renderList(){
     const next=route.find(v=>v.status==='pending');
     if(next){
       const nd=legOf(next);
-      const chips=[next.time, next.dur+'m', escAttr(CAT_LABELS[next.cat]||next.cat)]
-        .concat(nd?[nd]:[])
-        .concat(isPPV()?[fmtMoney(getPay(next))]:[])
-        .map(t=>`<span class="nsh-chip">${t}</span>`).join('');
+      const chipItems=[{t:next.time},{t:next.dur+'m'}];
+      if(next.needsDetails) chipItems.push({t:'Needs details',cls:'nsh-chip-todo'});
+      else{
+        chipItems.push({t:escAttr(CAT_LABELS[next.cat]||next.cat)});
+        if(isPPV()) chipItems.push({t:fmtMoney(getPay(next))});
+      }
+      if(nd) chipItems.push({t:nd});
+      const chips=chipItems.map(c=>`<span class="nsh-chip ${c.cls||''}">${c.t}</span>`).join('');
       heroHtml=`<div class="next-stop-hero">
         <div class="nsh-label">Next stop · #${visitNumber(next)}</div>
         <div class="nsh-name">${escAttr(next.name)}</div>
@@ -2798,7 +2820,13 @@ function renderList(){
       heroHtml=`<div class="route-complete">✓ Route done — ${done}/${route.length} visits · ${calcDayPoints(todayStr()).toFixed(2)} pts${isPPV()?' · '+fmtMoney(calcDayPay(todayStr())):''} today</div>`;
     }
   }
-  c.innerHTML=heroHtml+sorted.map((v,i)=>{
+  // Complete-later safety net: nudge for any visit on this day still missing
+  // its details (quick-added). Tapping opens the first one to complete.
+  const incomplete=visits.filter(v=>v.date===listSelectedDate && v.needsDetails);
+  const nudgeHtml = incomplete.length
+    ? `<div class="details-nudge" data-action="edit" data-id="${incomplete[0].id}">⚠ ${incomplete.length} visit${incomplete.length>1?'s':''} need details — tap to complete</div>`
+    : '';
+  c.innerHTML=nudgeHtml+heroHtml+sorted.map((v,i)=>{
     const dist=legOf(v);
     const pts=getPoints(v);
     return `<div class="visit-card status-${v.status}">
@@ -2808,6 +2836,7 @@ function renderList(){
           <div class="card-name">${escAttr(v.name)}</div>
           <div class="card-addr" data-action="nav" data-id="${v.id}" title="Tap to navigate">${escAttr(v.addr)}</div>
           <div class="card-tags">
+            ${v.needsDetails?'<span class="tag tag-todo">Needs details</span>':''}
             <span class="tag tag-time">${v.time}</span>
             <span class="tag tag-dur">${v.dur}m</span>
             <span class="tag tag-type">${escAttr(TYPE_LABELS[v.type]||v.type)}</span>
@@ -3028,6 +3057,7 @@ function downloadSummaryTxt(txt){
 // ─── PANELS ───────────────────────────────────────────────────────────────────
 function openAddPanel(){
   resetForm();
+  document.getElementById('add-panel').classList.remove('quick');
   document.getElementById('panel-title-text').textContent='Add Patient Visit';
   document.getElementById('f-submit-btn').textContent='+ Add to Route';
   document.getElementById('f-delete-btn').style.display='none';
@@ -3040,6 +3070,30 @@ function openAddPanel(){
   document.getElementById('add-panel').classList.add('open');
   document.getElementById('overlay').classList.add('open');
   setTimeout(()=>document.getElementById('f-name').focus(),300);
+}
+// Quick add — capture a visit fast (name + address) when info arrives piecemeal.
+// Opens the normal add panel, then collapses to the essentials; the rest is
+// filled in later (the visit is flagged needs_details until then).
+function openQuickAddPanel(){
+  openAddPanel();
+  applyQuickMode(true);
+}
+function applyQuickMode(on){
+  const panel=document.getElementById('add-panel');
+  panel.classList.toggle('quick',on);
+  document.getElementById('f-submit-btn').textContent = on ? '⚡ Quick add' : '+ Add to Route';
+  if(on){
+    // Default the (hidden) type/category to neutral, low-value choices so a
+    // provisional quick-add doesn't overstate points before it's completed.
+    document.getElementById('f-type').value='other';
+    const catSel=document.getElementById('f-cat');
+    let lowK=null,lowV=Infinity;
+    Object.keys(catPoints).forEach(k=>{ const val=catPoints[k]||0; if(val<lowV){lowV=val;lowK=k;} });
+    if(lowK && [...catSel.options].some(o=>o.value===lowK)) catSel.value=lowK;
+    updatePtsPreview();
+  } else {
+    applyPayModeUI(); // restore the pay field in full mode (PPV)
+  }
 }
 function closeAllPanels(){
   ['add-panel','settings-panel','extra-panel'].forEach(id=>document.getElementById(id).classList.remove('open'));

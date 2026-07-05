@@ -191,9 +191,26 @@ Audit `.card-action-btn` and bottom-nav buttons to min-height ≥ 44px at phone 
 
 ---
 
-## Slice 5 — REFRAMED: piecemeal quick-add / ease-of-use workshop (LATER)
+## Slice 5 — REFRAMED: piecemeal quick-add / ease-of-use workshop
 
-**Status:** [ ] deferred — needs a design workshop with Bre before any build.
+**Status:** [x] FOUNDATION SHIPPED (July 2026) — to be expanded with Bre.
+
+Shipped foundation (migration `20260705140000_quick_add.sql` → `visits.needs_details`):
+- **⚡ Quick-add FAB** (above the `+`) opens the add panel collapsed to name + address + date + time; optional fields (`.qopt`) hidden. Type defaults to `other`, category to the lowest-value one (so provisional points aren't overstated). "＋ Add full details now" expands to the full form.
+- New quick-added visits get `needs_details=true`; saving through the full edit form (any edit) clears it.
+- Surfacing: amber "Needs details" chip on the card and the next-stop hero, plus a tap-to-complete **nudge banner** at the top of the day's list.
+- Load/backup/restore carry the flag.
+
+**To workshop with Bre later** (open questions this foundation intentionally left simple):
+- Should quick-adding a *known* saved patient skip the `needs_details` flag (details are already back-filled)? Currently it always flags.
+- Should provisional (needs_details) visits be excluded from weekly points/pay totals until completed? Currently they count at the placeholder category.
+- Capture-from-notification shortcuts, and whether visit type/category should be truly optional (null) rather than placeholder-defaulted.
+
+---
+
+## Slice 5 (original, dropped) — Bulk paste import
+
+**Status:** [ ] dropped — no pasteable full-day list exists (gate Q1). Superseded by the reframed quick-add above.
 
 Original bulk-paste plan is **dropped**: the day never arrives as one pasteable list. The real problem to solve is **fast capture of a single visit the moment a call/email/notification comes in**, often with partial info (name + address, no visit type yet), to be completed later.
 

@@ -1200,7 +1200,9 @@ async function loadAllDataFromSupabase(){
   }));
   extraPoints = (extraRes.data||[]).map(r=>({id:r.id,label:r.label,date:r.date,pts:Number(r.pts)}));
   savedPatients = (patientsRes.data||[]).map(r=>({
-    name:r.name, addr:r.addr, coords:(r.lat!=null&&r.lng!=null)?{lat:r.lat,lng:r.lng}:null
+    name:r.name, addr:r.addr,
+    cat:r.cat||null, type:r.type||null, dur:r.dur!=null?Number(r.dur):null,
+    coords:(r.lat!=null&&r.lng!=null)?{lat:r.lat,lng:r.lng}:null
   }));
 
   if(settingsRes.data){
@@ -1447,6 +1449,7 @@ async function restoreBackup(evt){
         for(const p of data.savedPatients){
           await sb.from('saved_patients').upsert({
             user_id:uid, name:p.name, addr:p.addr,
+            cat:p.cat??null, type:p.type??null, dur:p.dur??null,
             lat:p.coords?.lat??null, lng:p.coords?.lng??null
           },{onConflict:'user_id,name'});
         }
@@ -1565,6 +1568,7 @@ function newVisitForPatient(name){
   document.getElementById('f-addr').value=p.addr;
   document.getElementById('name-dropdown').classList.remove('open');
   if(p.coords){window._pendingCoords=p.coords;showGeoConfirm(p.addr);}
+  applyPatientDefaults(p);
 }
 async function removeSavedPatient(name){
   savedPatients=savedPatients.filter(p=>p.name!==name);
@@ -1803,15 +1807,28 @@ function legInfoFor(v){
 }
 
 // ─── SAVED PATIENTS (autocomplete for repeat visits) ──────────────────────────
-async function upsertSavedPatient(name,addr,coords){
+async function upsertSavedPatient(name,addr,coords,cat,type,dur){
   if(!name||!addr) return;
   const existing=savedPatients.find(p=>p.name.toLowerCase()===name.toLowerCase());
-  if(existing){existing.addr=addr;existing.coords=coords;}
-  else savedPatients.push({name,addr,coords});
+  if(existing){existing.addr=addr;existing.coords=coords;existing.cat=cat??null;existing.type=type??null;existing.dur=dur??null;}
+  else savedPatients.push({name,addr,coords,cat:cat??null,type:type??null,dur:dur??null});
   await sb.from('saved_patients').upsert({
     user_id:currentUser.id, name, addr,
+    cat:cat??null, type:type??null, dur:dur??null,
     lat:coords?.lat??null, lng:coords?.lng??null
   },{onConflict:'user_id,name'});
+}
+// Pre-fill the visit form's category/type/duration from a saved patient's
+// last-used values. Guards against categories/types the user has since deleted
+// (only set the select if the option still exists), then refreshes the
+// points/pay previews. Address + coords are set by the caller.
+function applyPatientDefaults(p){
+  const catSel=document.getElementById('f-cat');
+  if(p.cat && [...catSel.options].some(o=>o.value===p.cat)) catSel.value=p.cat;
+  const typeSel=document.getElementById('f-type');
+  if(p.type && [...typeSel.options].some(o=>o.value===p.type)) typeSel.value=p.type;
+  if(p.dur!=null) document.getElementById('f-dur').value=p.dur;
+  updatePtsPreview();
 }
 function setupNameAutocomplete(){
   const inp=document.getElementById('f-name');
@@ -1837,6 +1854,7 @@ function setupNameAutocomplete(){
     document.getElementById('f-name').value=p.name;
     document.getElementById('f-addr').value=p.addr;
     if(p.coords){window._pendingCoords=p.coords;showGeoConfirm(p.addr);}
+    applyPatientDefaults(p);
     dd.classList.remove('open');
   });
   document.addEventListener('click',e=>{
@@ -2221,7 +2239,7 @@ async function submitVisitForm(){
       name,addr,date,time,dur,type,cat,notes,pay:payVal,
       lat:finalCoords?.lat??null, lng:finalCoords?.lng??null
     }).eq('id',v.id).eq('user_id',currentUser.id);
-    await upsertSavedPatient(name,addr,finalCoords);
+    await upsertSavedPatient(name,addr,finalCoords,cat,type,dur);
     resetForm();closeAllPanels();
     showToast(`✓ ${name} updated — ${pts} pts`);renderAll();
   } else {
@@ -2240,7 +2258,7 @@ async function submitVisitForm(){
       status:data.status, pay:data.pay!=null?Number(data.pay):null,
       coords:(data.lat!=null&&data.lng!=null)?{lat:data.lat,lng:data.lng}:null
     });
-    await upsertSavedPatient(name,addr,coords);
+    await upsertSavedPatient(name,addr,coords,cat,type,dur);
     resetForm();closeAllPanels();
     showToast(`✓ ${name} added — ${pts} pts`);renderAll();
   }

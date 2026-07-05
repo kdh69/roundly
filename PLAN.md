@@ -54,7 +54,7 @@ Verification checklist:
 
 **Goal:** picking a repeat patient by name fills the WHOLE form (address, coords, category, visit type, duration), not just the address. Repeat-visit entry drops from ~5 fields to ~1 tap + Save.
 
-**Status:** [ ] not started
+**Status:** [x] shipped — migration `20260705130000_saved_patient_defaults.sql` applied (backfilled from each patient's most recent visit via `DISTINCT ON`). `savedPatients` carry `cat/type/dur`; `upsertSavedPatient` writes them from both submit paths; shared `applyPatientDefaults(p)` prefills the form from both the name-autocomplete pick and the Settings "start visit" path (guards deleted categories/types, refreshes points+pay preview); backup/restore round-trips the fields.
 
 ### 1.1 Migration
 

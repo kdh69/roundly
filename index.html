@@ -247,6 +247,12 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 .setting-target-row label{font-size:14px;color:var(--text);flex:1}
 .setting-target-input{width:80px;font-size:18px;font-weight:700;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);text-align:center;color:var(--accent);background:var(--white)}
 .setting-target-input:focus{outline:none;border-color:var(--accent-mid);box-shadow:0 0 0 2px var(--accent-light)}
+.setting-remove-btn{border:none;background:none;color:var(--red);font-size:14px;font-weight:700;cursor:pointer;padding:4px 6px;line-height:1;flex-shrink:0}
+.add-custom-row{display:flex;align-items:center;gap:8px;margin-top:12px}
+.add-custom-name{flex:1;min-width:0;font-size:13px;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--white);color:var(--text)}
+.add-custom-pts{width:64px;font-size:13px;font-weight:700;padding:8px 8px;border-radius:var(--radius-sm);border:1px solid var(--border);text-align:right;color:var(--purple);background:var(--purple-bg)}
+.add-custom-name:focus,.add-custom-pts:focus{outline:none;border-color:var(--accent-mid);box-shadow:0 0 0 2px var(--accent-light)}
+.add-custom-btn{flex-shrink:0;padding:8px 12px;border-radius:var(--radius-sm);border:1px solid var(--teal);background:var(--teal-bg);color:var(--teal);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
 .btn-save-settings{width:100%;padding:13px;border-radius:var(--radius-md);border:none;background:var(--teal);color:white;font-size:15px;font-weight:700;cursor:pointer;margin-top:6px}
 .btn-reset-settings{width:100%;padding:10px;border-radius:var(--radius-md);border:1px solid var(--border);background:var(--white);color:var(--text-muted);font-size:13px;font-weight:600;cursor:pointer;margin-top:6px}
 .btn-danger-outline{width:100%;padding:10px;border-radius:var(--radius-md);border:1px solid var(--red);background:var(--red-bg);color:var(--red);font-size:13px;font-weight:700;cursor:pointer;margin-top:6px}
@@ -534,6 +540,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
       <button class="sort-btn active" id="sort-time" onclick="setSort('time')">⏰ Time</button>
       <button class="sort-btn" id="sort-num" onclick="setSort('num')"># Order</button>
       <button class="sort-btn" id="sort-status" onclick="setSort('status')">✓ Status</button>
+      <button class="sort-btn num-dir-btn" onclick="toggleVisitNumDir()">🕐 Earliest first</button>
       <button class="sort-btn-opt" onclick="optimizeRoute()">⚡ Optimize</button>
     </div>
     <div class="scroll-area">
@@ -587,6 +594,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
     <div class="map-controls">
       <button class="map-ctrl-btn primary" onclick="openFullRoute()">🗺️ Open in Maps</button>
       <button class="map-ctrl-btn success" onclick="optimizeRoute()">⚡ Optimize Route</button>
+      <button class="map-ctrl-btn num-dir-btn" onclick="toggleVisitNumDir()">🕐 Earliest first</button>
     </div>
   </div>
 
@@ -775,6 +783,20 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
   <div class="settings-section">
     <div class="settings-section-title">Point values per visit category</div>
     <div id="settings-pts-rows"><!-- built by buildSettingsRows() --></div>
+    <div class="add-custom-row">
+      <input type="text" id="new-cat-label" class="add-custom-name" placeholder="New category name">
+      <input type="number" id="new-cat-pts" class="add-custom-pts" placeholder="pts" min="0" max="10" step="0.05">
+      <button class="add-custom-btn" onclick="addCustomCategory()">+ Add</button>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <div class="settings-section-title">Visit types</div>
+    <div id="settings-types-rows"><!-- built by buildSettingsRows() --></div>
+    <div class="add-custom-row">
+      <input type="text" id="new-type-label" class="add-custom-name" placeholder="New visit type name">
+      <button class="add-custom-btn" onclick="addCustomType()">+ Add</button>
+    </div>
   </div>
 
   <div class="settings-section">
@@ -843,6 +865,11 @@ const ACCENT_PRESETS = [
 
 // ─── LIVE SETTINGS ────────────────────────────────────────────────────────────
 let catPoints = {...DEFAULT_POINTS};
+// User-defined extras, loaded from user_settings. Their labels get merged into
+// CAT_LABELS/CAT_FULL/TYPE_LABELS at load so all existing label lookups just work.
+//   customCats:  { key: {label, points} }   customTypes: { key: label }
+let customCats = {};
+let customTypes = {};
 let weeklyTarget = DEFAULT_WEEKLY_TARGET;
 let themeMode = 'auto';      // 'light' | 'dark' | 'auto'
 let accentId = 'navy';
@@ -853,6 +880,9 @@ let appUnlocked = false;
 // ─── APP STATE ────────────────────────────────────────────────────────────────
 let visits=[], extraPoints=[], savedPatients=[];
 let sortMode='time', currentView='list', viewingWeekOffset=0;
+// Direction for the visit numbers shown on the map pins and list bubbles:
+// 'asc' = earliest appointment is #1, 'desc' = latest is #1.
+let visitNumDir='asc';
 let listSelectedDate = todayStrInit();
 let calMode='month', calRefDate=new Date(), selectedCalDate=todayStrInit();
 let homeCoords={lat:35.2271,lng:-80.8431,label:'Charlotte, NC'};
@@ -919,7 +949,14 @@ async function signInWithGoogle(){
   document.getElementById('signin-error').classList.remove('show');
   const { error } = await sb.auth.signInWithOAuth({
     provider: 'google',
-    options:{ redirectTo: window.location.href }
+    options:{
+      redirectTo: window.location.href,
+      // Always show Google's account picker so each person signs into their
+      // OWN account. Without this, Google silently reuses whatever account is
+      // already active in the browser — which is how a second person could
+      // land in someone else's Roundly and see their patients.
+      queryParams: { prompt: 'select_account' }
+    }
   });
   if(error){
     document.getElementById('signin-loading').classList.remove('show');
@@ -943,7 +980,7 @@ async function onSignedIn(user){
   await loadAllDataFromSupabase();
   if(!visits.length && !(await hasAnyServerData())) await loadSampleData();
 
-  applyTheme();applyAccent();buildAccentGrid();buildCatDropdown();buildSettingsRows();
+  applyTheme();applyAccent();buildAccentGrid();buildCatDropdown();buildTypeDropdown();buildSettingsRows();
   updatePtsPreview();updateDateStripLabel();
 
   document.getElementById('app-loading-overlay').style.display='none';
@@ -1022,6 +1059,9 @@ async function loadAllDataFromSupabase(){
   if(settingsRes.data){
     const s=settingsRes.data;
     catPoints = {...DEFAULT_POINTS, ...(s.cat_points||{})};
+    customCats = s.custom_cats||{};
+    customTypes = s.custom_types||{};
+    applyCustomCatsAndTypes();
     weeklyTarget = Number(s.weekly_target)||DEFAULT_WEEKLY_TARGET;
     homeCoords = {lat:s.home_lat, lng:s.home_lng, label:s.home_label};
     themeMode = s.theme_mode||'auto';
@@ -1042,6 +1082,8 @@ async function saveUserSettings(){
   await sb.from('user_settings').upsert({
     user_id: currentUser.id,
     cat_points: catPoints,
+    custom_cats: customCats,
+    custom_types: customTypes,
     weekly_target: weeklyTarget,
     home_label: homeCoords.label,
     home_lat: homeCoords.lat,
@@ -1287,23 +1329,32 @@ function renderAccountArea(){
 async function signOutOfApp(){
   if(!confirm('Sign out of Roundly?')) return;
   await sb.auth.signOut();
-  pinHash=null;
-  visits=[];extraPoints=[];savedPatients=[];
-  closeAllPanels();
-  document.getElementById('app').style.display='none';
-  document.getElementById('signin-screen').style.display='flex';
-  showToast('Signed out');
+  // Full reload guarantees no in-memory state (visits, patients, custom
+  // category/type labels) carries over if a different person signs in next
+  // on this same device.
+  location.reload();
 }
 
 // ─── SETTINGS PANEL ───────────────────────────────────────────────────────────
 function buildSettingsRows(){
   document.getElementById('s-weekly-target').value=weeklyTarget;
   const container=document.getElementById('settings-pts-rows');
-  container.innerHTML=Object.keys(DEFAULT_POINTS).map(k=>`
-    <div class="setting-row">
-      <span class="setting-name">${CAT_FULL[k]}</span>
-      <input type="number" class="setting-pts-input" id="spt-${k}" value="${(catPoints[k]||DEFAULT_POINTS[k]).toFixed(2)}" min="0" max="10" step="0.05">
-    </div>`).join('');
+  container.innerHTML=Object.keys(catPoints).map(k=>{
+    const isCustom=!!customCats[k];
+    return `<div class="setting-row">
+      <span class="setting-name">${CAT_FULL[k]||k}</span>
+      <input type="number" class="setting-pts-input" id="spt-${k}" value="${(catPoints[k]||0).toFixed(2)}" min="0" max="10" step="0.05">
+      ${isCustom?`<button class="setting-remove-btn" onclick="removeCustomCategory('${k}')" title="Remove category">✕</button>`:''}
+    </div>`;
+  }).join('');
+  const typesEl=document.getElementById('settings-types-rows');
+  const customTypeKeys=Object.keys(customTypes||{});
+  typesEl.innerHTML = customTypeKeys.length
+    ? customTypeKeys.map(k=>`<div class="setting-row">
+        <span class="setting-name">${TYPE_LABELS[k]||k}</span>
+        <button class="setting-remove-btn" onclick="removeCustomType('${k}')" title="Remove type">✕</button>
+      </div>`).join('')
+    : `<div style="font-size:12px;color:var(--text-muted);line-height:1.4">Built-in types (Wound Care, Labwork, PICC, etc.) are always available. Add your own below.</div>`;
   renderAccountArea();
   renderSavedPatientsArea();
   const badge=document.getElementById('pin-status-badge');
@@ -1338,17 +1389,18 @@ async function removeSavedPatient(name){
 async function saveSettings(){
   const wt=parseFloat(document.getElementById('s-weekly-target').value);
   if(!isNaN(wt)&&wt>0) weeklyTarget=wt;
-  Object.keys(DEFAULT_POINTS).forEach(k=>{
+  Object.keys(catPoints).forEach(k=>{
     const v=parseFloat(document.getElementById('spt-'+k)?.value);
-    if(!isNaN(v)&&v>=0) catPoints[k]=v;
+    if(!isNaN(v)&&v>=0){ catPoints[k]=v; if(customCats[k]) customCats[k].points=v; }
   });
   await saveUserSettings();
   buildCatDropdown();closeAllPanels();renderAll();showToast('✓ Settings saved!');
 }
 async function resetSettings(){
   catPoints={...DEFAULT_POINTS};weeklyTarget=DEFAULT_WEEKLY_TARGET;
+  applyCustomCatsAndTypes(); // keep the user's custom categories intact
   await saveUserSettings();
-  buildSettingsRows();showToast('Reset to defaults');
+  buildSettingsRows();buildCatDropdown();showToast('Reset built-in point values to defaults');
 }
 function openSettings(){
   buildSettingsRows();
@@ -1356,7 +1408,7 @@ function openSettings(){
   document.getElementById('overlay').classList.add('open');
 }
 
-// ─── CATEGORY DROPDOWN ────────────────────────────────────────────────────────
+// ─── CATEGORY / TYPE DROPDOWNS ────────────────────────────────────────────────
 function buildCatDropdown(){
   const sel=document.getElementById('f-cat');
   const cur=sel.value;
@@ -1365,7 +1417,69 @@ function buildCatDropdown(){
   if(cur) sel.value=cur;
   updatePtsPreview();
 }
+function buildTypeDropdown(){
+  const sel=document.getElementById('f-type');
+  const cur=sel.value;
+  sel.innerHTML=Object.keys(TYPE_LABELS).map(k=>
+    `<option value="${k}">${TYPE_LABELS[k]}</option>`).join('');
+  if(cur) sel.value=cur;
+}
 function getPoints(v){return catPoints[v.cat]||0}
+
+// Merge a user's saved custom categories/types into the label + points maps so
+// every existing lookup (dropdowns, cards, exports) picks them up automatically.
+function applyCustomCatsAndTypes(){
+  Object.entries(customCats||{}).forEach(([k,v])=>{
+    if(!v) return;
+    CAT_LABELS[k]=v.label; CAT_FULL[k]=v.label; catPoints[k]=Number(v.points)||0;
+  });
+  Object.entries(customTypes||{}).forEach(([k,label])=>{ if(label) TYPE_LABELS[k]=label; });
+}
+// Turn a display name into a safe object key that won't collide with built-ins.
+function customKey(label){
+  return 'c_'+label.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'')+'_'+Date.now().toString(36);
+}
+async function addCustomCategory(){
+  const label=document.getElementById('new-cat-label').value.trim();
+  const pts=parseFloat(document.getElementById('new-cat-pts').value);
+  if(!label){showToast('Enter a category name');return;}
+  if(isNaN(pts)||pts<0){showToast('Enter a valid point value');return;}
+  const k=customKey(label);
+  customCats[k]={label,points:pts};
+  applyCustomCatsAndTypes();
+  await saveUserSettings();
+  document.getElementById('new-cat-label').value='';
+  document.getElementById('new-cat-pts').value='';
+  buildSettingsRows();buildCatDropdown();
+  showToast(`✓ Added category “${label}”`);
+}
+async function removeCustomCategory(k){
+  const label=customCats[k]?.label||'';
+  if(!confirm(`Remove custom category “${label}”? Visits already using it keep their saved category.`)) return;
+  delete customCats[k]; delete catPoints[k]; delete CAT_LABELS[k]; delete CAT_FULL[k];
+  await saveUserSettings();
+  buildSettingsRows();buildCatDropdown();
+  showToast('Category removed');
+}
+async function addCustomType(){
+  const label=document.getElementById('new-type-label').value.trim();
+  if(!label){showToast('Enter a visit type name');return;}
+  const k=customKey(label);
+  customTypes[k]=label;
+  applyCustomCatsAndTypes();
+  await saveUserSettings();
+  document.getElementById('new-type-label').value='';
+  buildSettingsRows();buildTypeDropdown();
+  showToast(`✓ Added visit type “${label}”`);
+}
+async function removeCustomType(k){
+  const label=customTypes[k]||'';
+  if(!confirm(`Remove custom visit type “${label}”? Visits already using it keep their saved type.`)) return;
+  delete customTypes[k]; delete TYPE_LABELS[k];
+  await saveUserSettings();
+  buildSettingsRows();buildTypeDropdown();
+  showToast('Visit type removed');
+}
 function updatePtsPreview(){
   const cat=document.getElementById('f-cat').value;
   document.getElementById('pts-preview-val').textContent=(catPoints[cat]||0).toFixed(2);
@@ -1783,10 +1897,32 @@ function setSort(mode){
 }
 function getSorted(){
   const v=[...visits.filter(x=>x.date===listSelectedDate)];
-  if(sortMode==='time')v.sort((a,b)=>a.time.localeCompare(b.time));
+  if(sortMode==='time'){v.sort((a,b)=>a.time.localeCompare(b.time));if(visitNumDir==='desc')v.reverse();}
   else if(sortMode==='num')v.sort((a,b)=>a.num-b.num);
   else{const o={pending:0,done:1,skipped:2};v.sort((a,b)=>(o[a.status]||0)-(o[b.status]||0));}
   return v;
+}
+// The number shown on a visit's map pin / list bubble is its position among
+// that day's visits ordered by appointment time (earliest = 1), flippable via
+// the direction toggle. This is derived on the fly so it's always correct and
+// needs no database writes.
+function dayVisitsByTime(dateStr){
+  const arr=visits.filter(x=>x.date===dateStr).slice().sort((a,b)=>a.time.localeCompare(b.time));
+  if(visitNumDir==='desc')arr.reverse();
+  return arr;
+}
+function visitNumber(v){
+  return dayVisitsByTime(v.date).findIndex(x=>x.id===v.id)+1;
+}
+function toggleVisitNumDir(){
+  visitNumDir = visitNumDir==='asc' ? 'desc' : 'asc';
+  updateVisitNumDirBtn();
+  renderAll();
+  showToast(visitNumDir==='asc' ? 'Numbered earliest → latest' : 'Numbered latest → earliest');
+}
+function updateVisitNumDirBtn(){
+  const label = visitNumDir==='asc' ? '🕐 Earliest first' : '🕐 Latest first';
+  document.querySelectorAll('.num-dir-btn').forEach(b=>b.textContent=label);
 }
 function shiftListDate(dir){
   const d=new Date(listSelectedDate+'T12:00:00');
@@ -1924,7 +2060,7 @@ function renderCalMonthGrid(){
   }
   grid.innerHTML=html;
   grid.querySelectorAll('.cal-day').forEach(el=>{
-    el.addEventListener('click',()=>selectCalDate(el.getAttribute('data-date')));
+    el.addEventListener('click',()=>selectDateAndGoToList(el.getAttribute('data-date')));
   });
 }
 
@@ -1950,7 +2086,7 @@ function renderCalWeekStrip(){
   }
   strip.innerHTML=html;
   strip.querySelectorAll('.cal-week-day').forEach(el=>{
-    el.addEventListener('click',()=>selectCalDate(el.getAttribute('data-date')));
+    el.addEventListener('click',()=>selectDateAndGoToList(el.getAttribute('data-date')));
   });
 }
 
@@ -1971,7 +2107,7 @@ function renderCalDayDetail(){
     const statusColor=v.status==='done'?'#0E7C66':v.status==='skipped'?'#9AA4B0':'#A85A0E';
     html+=`<div class="visit-card status-${v.status}" style="margin-bottom:8px">
       <div class="card-top">
-        <div class="visit-num-bubble">${v.num}</div>
+        <div class="visit-num-bubble">${visitNumber(v)}</div>
         <div class="card-info">
           <div class="card-name">${escAttr(v.name)}</div>
           <div class="card-addr">📍 ${escAttr(v.addr)}</div>
@@ -2030,7 +2166,7 @@ function setLayerOnMap(name){
 }
 function makePin(v){
   const color=v.status==='done'?'#0E7C66':v.status==='skipped'?'#888':'#A85A0E';
-  return L.divIcon({html:`<div class="marker-pin" style="background:${color}">${v.num}</div>`,className:'',iconSize:[28,28],iconAnchor:[14,14],popupAnchor:[0,-16]});
+  return L.divIcon({html:`<div class="marker-pin" style="background:${color}">${visitNumber(v)}</div>`,className:'',iconSize:[28,28],iconAnchor:[14,14],popupAnchor:[0,-16]});
 }
 function makeHomePin(){
   return L.divIcon({html:`<div class="marker-pin" style="background:#1B4F72;width:34px;height:34px;font-size:16px">🏠</div>`,className:'',iconSize:[34,34],iconAnchor:[17,17],popupAnchor:[0,-18]});
@@ -2050,7 +2186,7 @@ function updateMapMarkers(){
     const pts=getPoints(v);
     L.marker([v.coords.lat,v.coords.lng],{icon:makePin(v)})
       .bindPopup(`<div class="lf-popup">
-        <h4>${v.num}. ${escAttr(v.name)}</h4>
+        <h4>${visitNumber(v)}. ${escAttr(v.name)}</h4>
         <p>📍 ${escAttr(v.addr)}</p>
         <p>⏰ ${v.time} &nbsp;|&nbsp; ⏱ ${v.dur} min</p>
         <p>
@@ -2090,7 +2226,7 @@ function renderList(){
     const pts=getPoints(v);
     return `<div class="visit-card status-${v.status}">
       <div class="card-top">
-        <div class="visit-num-bubble">${v.num}</div>
+        <div class="visit-num-bubble">${visitNumber(v)}</div>
         <div class="card-info">
           <div class="card-name">${escAttr(v.name)}</div>
           <div class="card-addr">📍 ${escAttr(v.addr)}</div>
@@ -2237,7 +2373,7 @@ function exportSummary(){
   sorted.forEach((v,i)=>{
     const prev=i>0&&sorted[i-1].coords&&v.coords;
     const dist=prev?haversine(sorted[i-1].coords,v.coords).toFixed(1)+' mi':'';
-    txt+=`\n${v.num}. ${v.name}  [${v.status.toUpperCase()}]\n   ${v.addr}\n   ${v.time} | ${v.dur} min | ${TYPE_LABELS[v.type]||v.type}\n   ${CAT_FULL[v.cat]||v.cat} | ${getPoints(v)} pts\n`;
+    txt+=`\n${visitNumber(v)}. ${v.name}  [${v.status.toUpperCase()}]\n   ${v.addr}\n   ${v.time} | ${v.dur} min | ${TYPE_LABELS[v.type]||v.type}\n   ${CAT_FULL[v.cat]||v.cat} | ${getPoints(v)} pts\n`;
     if(dist)txt+=`   Drive from prev: ${dist}\n`;
     if(v.notes)txt+=`   Notes: ${v.notes}\n`;
   });

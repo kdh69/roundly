@@ -12,7 +12,8 @@
 | Hosting | Netlify (roundly-app.netlify.app), auto-deploys from GitHub `main` |
 | Auth | Supabase Google OAuth |
 | Database | Supabase (Postgres) with Row Level Security |
-| Maps | Leaflet.js + ESRI satellite tiles |
+| Maps | Leaflet.js + ESRI satellite tiles (CARTO dark tiles for street layer in dark mode) |
+| Road routing | OSRM public demo server (router.project-osrm.org, no API key) — real driving route line + mileage, falls back to haversine straight-line estimates when unreachable |
 | Address search | Photon by Komoot (autocomplete-friendly, no API key) — NOT Nominatim, which bans autocomplete use |
 | Version control | GitHub — `github.com/kdh69/roundly` |
 | Schema migrations | Supabase CLI (`supabase/` folder), linked to the remote project |
@@ -64,9 +65,9 @@ Weekly target: **30 points** (configurable per user in Settings).
 - Address autocomplete via Photon, biased toward home base location
 - Saved patients — repeat-patient autocomplete by name, auto-fills address
 - Date navigation — view/add visits for any date (date strip in Visits tab)
-- Route map — Leaflet satellite/street/hybrid, pins + route line
-- Route optimization — nearest-neighbor algorithm to minimize backtracking
-- Mileage tracking — Haversine-distance estimates, round trip from home base
+- Route map — Leaflet satellite/street/hybrid, pins + road-following route line (OSRM), next-stop pin highlighted, date strip on the map, Done/Edit/Navigate from pin popups, layer choice remembered per device
+- Route optimization — nearest-neighbor + 2-opt improvement; optimized days follow the stored visit `num` order (flag kept in localStorage per device), all other days follow appointment-time order (`routeVisits()` is the single source of driving order)
+- Mileage tracking — real road distance via OSRM (round trip from home base), haversine straight-line as offline fallback; UI labels which one is showing
 - Productivity points — per-visit points auto-calculated by category, configurable per user
 - Extra points — non-visit productivity (meetings, education, training) toward weekly goal
 - Weekly progress — progress bar toward target, browsable week-by-week
@@ -101,6 +102,7 @@ roundly/
 - The app is a **single HTML file** — all CSS and JS is inline, no build step, no bundler. **Never split it into separate files** unless explicitly decided together as a deliberate refactor.
 - Before considering any edit to `index.html` done, validate balanced `{}` braces, `()` parens, and `<div>` tags.
 - The app is used by real clinicians for real patient data — test carefully before deploying.
+- Date strings must be built from LOCAL date parts (use the `toDateStr()` helper) — never `toISOString().slice(0,10)`, which is UTC and flips "today" to tomorrow after ~7-8 PM Eastern.
 - Address search must stay on Photon (photon.komoot.io), not Nominatim.
 - Google OAuth redirect URL must stay in sync as `https://roundly-app.netlify.app/**` in both Supabase and Google Cloud Console.
 - Schema changes should go through Supabase CLI migrations (`supabase/migrations/`), not the raw SQL editor, so history stays tracked in git.

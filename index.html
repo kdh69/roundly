@@ -41,6 +41,11 @@
   --radius-sm:6px;--radius-md:10px;--radius-lg:16px;
   --safe-bottom:env(safe-area-inset-bottom,0px);
   --safe-top:env(safe-area-inset-top,0px);
+
+  /* Elevation system — subtle depth for cards / panels / floating elements */
+  --shadow-sm:0 1px 2px rgba(28,40,51,0.06),0 1px 4px rgba(28,40,51,0.05);
+  --shadow-md:0 2px 6px rgba(28,40,51,0.08),0 4px 14px rgba(28,40,51,0.08);
+  --shadow-lg:0 -8px 30px rgba(0,0,0,0.18);
 }
 /* DARK MODE — chrome only. Chip colors above are untouched on purpose. */
 [data-theme="dark"]{
@@ -51,6 +56,10 @@
      in dark mode we want a dim version of the accent, not a near-black
      one, so text drawn in --accent stays legible on it. */
   --accent-light:#1E3A52;
+  /* Dark mode needs heavier shadows to read as depth on dark surfaces */
+  --shadow-sm:0 1px 2px rgba(0,0,0,0.35),0 1px 4px rgba(0,0,0,0.28);
+  --shadow-md:0 2px 6px rgba(0,0,0,0.4),0 4px 14px rgba(0,0,0,0.35);
+  --shadow-lg:0 -8px 30px rgba(0,0,0,0.55);
 }
 
 /* ===== THEME PRESETS (color personalization) ===== */
@@ -111,7 +120,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 .lock-forgot{margin-top:18px;background:none;border:none;color:rgba(255,255,255,0.7);font-size:12px;text-decoration:underline;cursor:pointer}
 
 /* ===== HEADER ===== */
-.app-header{background:var(--accent);color:white;padding:calc(10px + var(--safe-top)) 16px 0;flex-shrink:0}
+.app-header{background:linear-gradient(160deg,var(--accent),var(--accent-mid));color:white;padding:calc(10px + var(--safe-top)) 16px 0;flex-shrink:0;position:relative;z-index:10;box-shadow:0 2px 12px rgba(0,0,0,0.14)}
 .header-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .header-title{display:flex;align-items:center;gap:8px}
 .header-icon{width:32px;height:32px;background:rgba(255,255,255,0.15);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:18px}
@@ -123,19 +132,20 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 .btn-settings:active{background:rgba(255,255,255,0.25)}
 
 /* ===== STATS BAR ===== */
-.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:0;background:var(--accent);padding:0 8px 10px;flex-shrink:0}
-.stat-card{text-align:center;padding:5px 4px;background:rgba(255,255,255,0.1);border-radius:var(--radius-sm);margin:0 3px}
+/* transparent so the header gradient shows through */
+.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:0;background:transparent;padding:0 8px 10px;flex-shrink:0}
+.stat-card{text-align:center;padding:5px 4px;background:rgba(255,255,255,0.13);border:1px solid rgba(255,255,255,0.09);border-radius:var(--radius-sm);margin:0 3px}
 .stat-val{font-size:17px;font-weight:700;color:white;line-height:1}
 .stat-lbl{font-size:9px;color:rgba(255,255,255,0.7);margin-top:2px}
 
 /* ===== WEEKLY BAR ===== */
-.weekly-bar-wrap{background:var(--accent);padding:0 12px 12px;flex-shrink:0}
+.weekly-bar-wrap{background:transparent;padding:0 12px 12px;flex-shrink:0}
 .weekly-bar-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
 .weekly-bar-lbl{font-size:11px;color:rgba(255,255,255,0.8)}
 .weekly-bar-val{font-size:11px;font-weight:700;color:white}
 .weekly-bar-track{height:8px;background:rgba(255,255,255,0.2);border-radius:4px;overflow:hidden}
-.weekly-bar-fill{height:100%;border-radius:4px;transition:width 0.4s ease;background:#3FCB7E}
-.weekly-bar-fill.warn{background:#F0A848}
+.weekly-bar-fill{height:100%;border-radius:4px;transition:width 0.4s ease;background:linear-gradient(90deg,#2FB56A,#4FD98B)}
+.weekly-bar-fill.warn{background:linear-gradient(90deg,#E29638,#F5B45F)}
 
 /* ===== HOME BAR ===== */
 .home-bar{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--border);background:var(--gray-50);flex-shrink:0}
@@ -168,7 +178,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 .empty-state{padding:48px 24px;text-align:center;color:var(--text-muted)}
 .empty-icon{font-size:48px;margin-bottom:12px}
 .empty-state p{font-size:14px;line-height:1.5}
-.visit-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden}
+.visit-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden;box-shadow:var(--shadow-sm);transition:transform 0.1s}
+.visit-card:active{transform:scale(0.995)}
 .visit-card.status-done{border-left:4px solid var(--teal)}
 .visit-card.status-skipped{border-left:4px solid var(--gray-400);opacity:0.7}
 .visit-card.status-pending{border-left:4px solid var(--amber)}
@@ -187,7 +198,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 .tag-dur{background:var(--gray-100);color:var(--gray-800)}
 .tag-miles{background:var(--teal-bg);color:var(--teal)}
 .card-pts-badge{flex-shrink:0}
-.pts-circle{width:40px;height:40px;border-radius:50%;background:var(--purple-bg);display:flex;flex-direction:column;align-items:center;justify-content:center}
+.pts-circle{width:40px;height:40px;border-radius:50%;background:var(--purple-bg);display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:inset 0 0 0 1px rgba(108,52,131,0.18),0 1px 3px rgba(0,0,0,0.08)}
 .pts-num{font-size:14px;font-weight:700;color:var(--purple);line-height:1}
 .pts-word{font-size:8px;color:var(--purple);opacity:0.85}
 .card-notes{padding:0 12px 8px 48px;font-size:12px;color:var(--text-muted);font-style:italic}
@@ -213,14 +224,14 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 .addr-group-label{padding:6px 12px 4px;font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;background:var(--gray-50)}
 
 /* ===== SLIDE PANELS ===== */
-.slide-panel{position:fixed;bottom:0;left:50%;transform:translateX(-50%) translateY(100%);width:100%;max-width:480px;background:var(--white);border-radius:var(--radius-lg) var(--radius-lg) 0 0;border-top:1px solid var(--border);padding:0 0 calc(16px + var(--safe-bottom));z-index:500;transition:transform 0.25s ease;max-height:94dvh;overflow-y:auto}
+.slide-panel{position:fixed;bottom:0;left:50%;transform:translateX(-50%) translateY(100%);width:100%;max-width:480px;background:var(--white);border-radius:var(--radius-lg) var(--radius-lg) 0 0;border-top:1px solid var(--border);padding:0 0 calc(16px + var(--safe-bottom));z-index:500;transition:transform 0.25s ease;max-height:94dvh;overflow-y:auto;box-shadow:var(--shadow-lg)}
 .slide-panel.open{transform:translateX(-50%) translateY(0)}
 .panel-handle{width:36px;height:4px;background:var(--gray-200);border-radius:2px;margin:10px auto 0}
 .panel-title{font-size:16px;font-weight:700;padding:12px 16px 10px;color:var(--accent);border-bottom:1px solid var(--gray-100);display:flex;align-items:center;justify-content:space-between}
 .panel-close{width:28px;height:28px;border-radius:50%;background:var(--gray-100);border:none;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:var(--text-muted)}
 .form-body{padding:12px 14px;display:flex;flex-direction:column;gap:10px}
 .field-label{font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px}
-.form-input,.form-select{width:100%;font-size:15px;padding:10px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--white);color:var(--text);appearance:none;-webkit-appearance:none}
+.form-input,.form-select{width:100%;font-size:15px;padding:10px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--white);color:var(--text);appearance:none;-webkit-appearance:none;transition:border-color 0.15s,box-shadow 0.15s}
 .form-input:focus,.form-select:focus{outline:none;border-color:var(--accent-mid);box-shadow:0 0 0 3px var(--accent-light)}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .select-wrap{position:relative}
@@ -296,17 +307,21 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 .btn-restore{flex:1;padding:11px;border-radius:var(--radius-md);border:1px solid var(--accent);background:none;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
 .backup-note{font-size:11px;color:var(--text-muted);line-height:1.5;margin-top:8px}
 
-/* ===== FAB ===== */
-.fab{position:fixed;bottom:calc(64px + var(--safe-bottom));right:calc(50% - 226px);width:52px;height:52px;border-radius:50%;background:var(--accent);color:white;border:none;font-size:26px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;z-index:100}
+/* ===== FAB =====
+   On phones (<481px) the FABs anchor to the screen edges; the calc() values
+   that center them against the 480px app column only apply at >=481px —
+   using the calc() at all widths pushed the + button off-screen on phones. */
+.fab{position:fixed;bottom:calc(64px + var(--safe-bottom));right:16px;width:52px;height:52px;border-radius:50%;background:var(--accent);color:white;border:none;font-size:26px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.22),0 6px 18px rgba(0,0,0,0.26);display:flex;align-items:center;justify-content:center;z-index:100;transition:transform 0.1s}
 .fab:active{transform:scale(0.93)}
-.fab-extra{position:fixed;bottom:calc(64px + var(--safe-bottom));left:calc(50% - 226px);width:52px;height:52px;border-radius:50%;background:var(--purple);color:white;border:none;font-size:22px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;z-index:100}
+.fab-extra{position:fixed;bottom:calc(64px + var(--safe-bottom));left:16px;width:52px;height:52px;border-radius:50%;background:var(--purple);color:white;border:none;font-size:22px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.22),0 6px 18px rgba(0,0,0,0.26);display:flex;align-items:center;justify-content:center;z-index:100;transition:transform 0.1s}
 .fab-extra:active{transform:scale(0.93)}
 
 /* ===== BOTTOM NAV ===== */
-.bottom-nav{display:flex;border-top:1px solid var(--border);background:var(--white);padding-bottom:var(--safe-bottom);flex-shrink:0}
-.bottom-nav-btn{flex:1;padding:7px 2px;font-size:9.5px;font-weight:600;border:none;background:none;color:var(--gray-600);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px}
-.bottom-nav-btn .nav-icon{font-size:18px}
+.bottom-nav{display:flex;border-top:1px solid var(--border);background:var(--white);padding-bottom:var(--safe-bottom);flex-shrink:0;box-shadow:0 -2px 10px rgba(0,0,0,0.06);position:relative;z-index:10}
+.bottom-nav-btn{flex:1;padding:7px 2px;font-size:9.5px;font-weight:600;border:none;background:none;color:var(--gray-600);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;transition:color 0.15s}
+.bottom-nav-btn .nav-icon{font-size:18px;padding:1px 10px;border-radius:12px;transition:background 0.15s}
 .bottom-nav-btn.active{color:var(--accent)}
+.bottom-nav-btn.active .nav-icon{background:var(--accent-light)}
 
 /* ===== VIEWS ===== */
 #view-map,#view-list,#view-summary,#view-points,#view-calendar{display:none;flex-direction:column;flex:1;overflow:hidden;min-height:0}
@@ -325,8 +340,15 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 .lf-popup h4{font-size:13px;font-weight:700;color:var(--accent);margin-bottom:4px}
 .lf-popup p{font-size:11px;color:var(--text-muted);margin-bottom:2px}
 .lf-popup .pop-tag{display:inline-block;font-size:10px;font-weight:700;padding:2px 6px;border-radius:20px;margin:3px 2px 0 0}
-.lf-popup .btn-nav{display:block;width:100%;padding:7px;margin-top:8px;border-radius:var(--radius-sm);border:none;background:var(--accent);color:white;font-size:12px;font-weight:700;cursor:pointer;text-align:center}
+.lf-popup .btn-nav{display:block;width:100%;padding:7px;margin-top:6px;border-radius:var(--radius-sm);border:none;background:var(--accent);color:white;font-size:12px;font-weight:700;cursor:pointer;text-align:center}
+.lf-popup .pop-row{display:flex;gap:6px;margin-top:8px}
+.lf-popup .pop-btn{flex:1;padding:7px 4px;border-radius:var(--radius-sm);border:none;color:white;font-size:11px;font-weight:700;cursor:pointer;text-align:center}
 .marker-pin{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;border:2.5px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.35)}
+/* The NEXT pending stop stands out from the rest of the route */
+.marker-pin.next-stop{transform:scale(1.22);box-shadow:0 0 0 3px rgba(255,255,255,0.55),0 3px 9px rgba(0,0,0,0.45)}
+.map-wrap{position:relative;flex:1;display:flex;min-height:0}
+.map-fit-btn{position:absolute;top:12px;right:12px;z-index:500;width:38px;height:38px;border-radius:50%;border:1px solid var(--border);background:var(--white);color:var(--text);font-size:17px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center}
+.map-fit-btn:active{transform:scale(0.93)}
 
 /* ===== CALENDAR VIEW ===== */
 .cal-toolbar{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--border);background:var(--gray-50);flex-shrink:0}
@@ -370,7 +392,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 .week-nav-btn{background:none;border:1px solid var(--border);border-radius:var(--radius-sm);padding:5px 12px;font-size:13px;cursor:pointer;color:var(--text-muted)}
 .week-nav-lbl{font-size:13px;font-weight:600;color:var(--accent)}
 .points-scroll{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
-.week-target-card{background:var(--accent);color:white;border-radius:var(--radius-lg);padding:18px}
+.week-target-card{background:linear-gradient(160deg,var(--accent),var(--accent-mid));color:white;border-radius:var(--radius-lg);padding:18px;box-shadow:var(--shadow-md)}
 .wtc-title{font-size:12px;opacity:0.8;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px}
 .wtc-nums{display:flex;align-items:baseline;gap:6px;margin-bottom:14px}
 .wtc-earned{font-size:44px;font-weight:700;line-height:1}
@@ -383,7 +405,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 .wtc-row{display:flex;justify-content:space-between;font-size:12px}
 .wtc-remain{opacity:0.85}
 .wtc-pct{font-weight:700}
-.day-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden}
+.day-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden;box-shadow:var(--shadow-sm)}
 .day-card-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--gray-50);border-bottom:1px solid var(--border)}
 .day-card-header h3{font-size:13px;font-weight:700;color:var(--accent)}
 .day-pts-pill{font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;background:var(--purple-bg);color:var(--purple)}
@@ -396,7 +418,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 .dv-pts{background:var(--purple-bg);color:var(--purple)}
 .dv-status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .dv-extra-icon{font-size:14px;flex-shrink:0}
-.pts-ref-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden}
+.pts-ref-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden;box-shadow:var(--shadow-sm)}
 .pts-ref-header{padding:10px 14px 8px;background:var(--gray-50);border-bottom:1px solid var(--border);font-size:13px;font-weight:700;color:var(--accent);display:flex;justify-content:space-between;align-items:center}
 .pts-ref-edit-btn{font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid var(--accent);background:none;color:var(--accent);cursor:pointer;font-weight:600}
 .pts-ref-row{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-bottom:1px solid var(--gray-100);font-size:13px}
@@ -413,7 +435,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 
 /* ===== SUMMARY ===== */
 .summary-scroll{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
-.summary-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px}
+.summary-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px;box-shadow:var(--shadow-sm)}
 .summary-card h3{font-size:13px;font-weight:700;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.05em}
 .summary-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--gray-100);font-size:13px}
 .summary-row:last-child{border-bottom:none}
@@ -425,10 +447,26 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 .visit-type-chip{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;background:var(--amber-bg);color:var(--amber);margin-right:4px}
 .visit-cat-chip{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;background:var(--accent-light);color:var(--accent)}
 
+/* ===== TAPPABLE SURFACES =====
+   Everything informational is also a shortcut: stats → their view, card body
+   → edit, address → navigate, day headers → that day, etc. */
+.tap{cursor:pointer}
+.stat-card{cursor:pointer;transition:background 0.15s}
+.stat-card:active{background:rgba(255,255,255,0.22)}
+.weekly-bar-wrap{cursor:pointer}
+.header-date{cursor:pointer}
+.header-date:active{background:rgba(255,255,255,0.25)}
+.card-top{cursor:pointer}
+.card-top:active{background:var(--gray-50)}
+.card-addr{cursor:pointer}
+.day-visit-row.tap:active,.summary-row.tap:active{background:var(--gray-100)}
+.day-card-header.tap:active{background:var(--gray-100)}
+.empty-state.tap:active{opacity:0.7}
+
 /* ===== OVERLAY + TOAST ===== */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:400;opacity:0;pointer-events:none;transition:opacity 0.25s}
 .overlay.open{opacity:1;pointer-events:all}
-.toast{position:fixed;top:calc(16px + var(--safe-top));left:50%;transform:translateX(-50%) translateY(-80px);background:var(--gray-800);color:var(--white);padding:10px 18px;border-radius:var(--radius-md);font-size:13px;font-weight:500;z-index:600;transition:transform 0.25s ease;white-space:nowrap;max-width:90vw}
+.toast{position:fixed;top:calc(16px + var(--safe-top));left:50%;transform:translateX(-50%) translateY(-80px);background:var(--gray-800);color:var(--white);padding:10px 18px;border-radius:var(--radius-md);font-size:13px;font-weight:500;z-index:600;transition:transform 0.25s ease;text-align:center;max-width:90vw}
 .toast.show{transform:translateX(-50%) translateY(0)}
 [data-theme="dark"] .toast{background:#3A4250;color:#fff}
 
@@ -497,17 +535,17 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
         <div><h1>Roundly</h1><p>Clinician Route &amp; Visit Tracker</p></div>
       </div>
       <div class="header-right">
-        <div class="header-date" id="today-date"></div>
-        <button class="btn-settings" onclick="openSettings()" title="Settings">⚙️</button>
+        <div class="header-date" id="today-date" onclick="goToToday();switchView('list')" title="Jump to today" role="button"></div>
+        <button class="btn-settings" onclick="openSettings()" title="Settings" aria-label="Settings">⚙️</button>
       </div>
     </div>
     <div class="stats-bar">
-      <div class="stat-card"><div class="stat-val" id="stat-miles">0.0</div><div class="stat-lbl">Est. Miles</div></div>
-      <div class="stat-card"><div class="stat-val" id="stat-pts-today">0.0</div><div class="stat-lbl">Today pts</div></div>
-      <div class="stat-card"><div class="stat-val" id="stat-pts-week">0.0</div><div class="stat-lbl">Week pts</div></div>
-      <div class="stat-card"><div class="stat-val" id="stat-pts-remain">—</div><div class="stat-lbl">To target</div></div>
+      <div class="stat-card" onclick="switchView('summary')" role="button"><div class="stat-val" id="stat-miles">0.0</div><div class="stat-lbl" id="stat-miles-lbl">Est. Miles</div></div>
+      <div class="stat-card" onclick="openPointsView()" role="button"><div class="stat-val" id="stat-pts-today">0.0</div><div class="stat-lbl" id="stat-pts-today-lbl">Today pts</div></div>
+      <div class="stat-card" onclick="openPointsView()" role="button"><div class="stat-val" id="stat-pts-week">0.0</div><div class="stat-lbl">Week pts</div></div>
+      <div class="stat-card" onclick="openPointsView()" role="button"><div class="stat-val" id="stat-pts-remain">—</div><div class="stat-lbl">To target</div></div>
     </div>
-    <div class="weekly-bar-wrap">
+    <div class="weekly-bar-wrap" onclick="openPointsView()" role="button">
       <div class="weekly-bar-top">
         <span class="weekly-bar-lbl" id="weekly-bar-lbl">Weekly target: 30 pts</span>
         <span class="weekly-bar-val" id="weekly-bar-pct">0%</span>
@@ -529,9 +567,9 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
     <div class="home-confirmed" id="home-confirmed">✓ <span id="home-confirmed-text"></span></div>
 
     <div class="date-strip">
-      <button class="date-strip-btn" onclick="shiftListDate(-1)">‹</button>
+      <button class="date-strip-btn" onclick="shiftListDate(-1)" aria-label="Previous day">‹</button>
       <div class="date-strip-label" id="date-strip-label" onclick="switchView('calendar')">Today</div>
-      <button class="date-strip-btn" onclick="shiftListDate(1)">›</button>
+      <button class="date-strip-btn" onclick="shiftListDate(1)" aria-label="Next day">›</button>
       <button class="date-strip-today" id="date-strip-today-btn" onclick="goToToday()" style="display:none">Today</button>
     </div>
 
@@ -551,9 +589,9 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
   <!-- VIEW: CALENDAR -->
   <div id="view-calendar">
     <div class="cal-toolbar">
-      <button class="cal-nav-btn" onclick="calNav(-1)">‹</button>
+      <button class="cal-nav-btn" onclick="calNav(-1)" aria-label="Previous">‹</button>
       <div class="cal-month-label" id="cal-month-label"></div>
-      <button class="cal-nav-btn" onclick="calNav(1)">›</button>
+      <button class="cal-nav-btn" onclick="calNav(1)" aria-label="Next">›</button>
     </div>
     <div class="cal-toolbar" style="border-top:none">
       <div class="cal-mode-toggle">
@@ -576,8 +614,11 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
     </div>
     <div class="cal-day-detail scroll-area">
       <div class="cal-day-detail-header">
-        <h3 id="cal-detail-date">—</h3>
-        <button class="cal-add-day-btn" onclick="openAddPanelForDate(selectedCalDate)">+ Add Visit</button>
+        <h3 id="cal-detail-date" class="tap" onclick="selectDateAndGoToList(selectedCalDate)" title="Open this day in Visits">—</h3>
+        <div style="display:flex;gap:6px">
+          <button class="date-strip-today" onclick="selectDateAndGoToList(selectedCalDate)">📋 Open</button>
+          <button class="cal-add-day-btn" onclick="openAddPanelForDate(selectedCalDate)">+ Add Visit</button>
+        </div>
       </div>
       <div id="cal-day-detail-list"></div>
     </div>
@@ -585,12 +626,21 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 
   <!-- VIEW: MAP -->
   <div id="view-map">
+    <div class="date-strip">
+      <button class="date-strip-btn" onclick="shiftListDate(-1)" aria-label="Previous day">‹</button>
+      <div class="date-strip-label" id="map-date-label" onclick="switchView('calendar')">Today</div>
+      <button class="date-strip-btn" onclick="shiftListDate(1)" aria-label="Next day">›</button>
+      <button class="date-strip-today" id="map-date-today-btn" onclick="goToToday()" style="display:none">Today</button>
+    </div>
     <div class="map-layer-toggle">
       <button class="layer-btn active" id="btn-satellite" onclick="setLayer('satellite')">🛰️ Satellite</button>
       <button class="layer-btn" id="btn-street" onclick="setLayer('street')">🗺️ Street</button>
       <button class="layer-btn" id="btn-hybrid" onclick="setLayer('hybrid')">🏙️ Hybrid</button>
     </div>
-    <div id="leaflet-map"></div>
+    <div class="map-wrap">
+      <div id="leaflet-map"></div>
+      <button class="map-fit-btn" onclick="fitMapToRoute()" title="Fit route in view" aria-label="Fit route in view">⛶</button>
+    </div>
     <div class="map-controls">
       <button class="map-ctrl-btn primary" onclick="openFullRoute()">🗺️ Open in Maps</button>
       <button class="map-ctrl-btn success" onclick="optimizeRoute()">⚡ Optimize Route</button>
@@ -637,7 +687,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 <!-- ADD / EDIT VISIT PANEL -->
 <div class="slide-panel" id="add-panel">
   <div class="panel-handle"></div>
-  <div class="panel-title"><span id="panel-title-text">Add Patient Visit</span> <button class="panel-close" onclick="closeAllPanels()">✕</button></div>
+  <div class="panel-title"><span id="panel-title-text">Add Patient Visit</span> <button class="panel-close" onclick="closeAllPanels()" aria-label="Close">✕</button></div>
   <div class="form-body">
     <input type="hidden" id="f-edit-id" value="">
     <div>
@@ -711,7 +761,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 <!-- ADD EXTRA POINTS PANEL -->
 <div class="slide-panel" id="extra-panel">
   <div class="panel-handle"></div>
-  <div class="panel-title">⭐ Add Productivity Points <button class="panel-close" onclick="closeAllPanels()">✕</button></div>
+  <div class="panel-title">⭐ Add Productivity Points <button class="panel-close" onclick="closeAllPanels()" aria-label="Close">✕</button></div>
   <div class="form-body">
     <p style="font-size:12px;color:var(--text-muted);line-height:1.5">Use this for non-visit productivity that counts toward your weekly goal — staff meetings, education, training, chart audits, etc.</p>
     <div>
@@ -735,7 +785,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 <!-- SETTINGS PANEL -->
 <div class="slide-panel" id="settings-panel">
   <div class="panel-handle"></div>
-  <div class="panel-title">⚙️ Settings <button class="panel-close" onclick="closeAllPanels()">✕</button></div>
+  <div class="panel-title">⚙️ Settings <button class="panel-close" onclick="closeAllPanels()" aria-label="Close">✕</button></div>
 
   <div class="settings-section">
     <div class="settings-section-title">Appearance — Light / Dark</div>
@@ -812,12 +862,11 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
   <div class="settings-section">
     <div class="settings-section-title">Share this app</div>
     <div class="share-box">
-      <p>To send this app to a colleague as a link, upload the <strong>index.html</strong> file to one of these free hosting services — then share the link by text:</p>
-      <div style="display:flex;flex-direction:column;gap:8px">
-        <a href="https://app.netlify.com/drop" target="_blank" style="display:block;padding:10px 14px;background:var(--accent);color:white;border-radius:var(--radius-sm);text-decoration:none;font-size:13px;font-weight:700;text-align:center">🚀 Netlify Drop (drag &amp; drop)</a>
-        <a href="https://tiiny.host" target="_blank" style="display:block;padding:10px 14px;background:var(--teal);color:white;border-radius:var(--radius-sm);text-decoration:none;font-size:13px;font-weight:700;text-align:center">🌐 tiiny.host (free, instant link)</a>
+      <p>Send a colleague the link — they sign in with their own Google account and get their own private data. Nothing of yours is ever visible to them.</p>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="text" class="form-input" value="https://roundly-app.netlify.app" readonly style="font-size:13px" onclick="this.select()">
+        <button class="btn-set" onclick="copyAppLink()">Copy</button>
       </div>
-      <p style="font-size:12px">Anyone who opens this link signs in with their own Google account — their visits, patients, and points are kept completely separate from yours, safely in the cloud.</p>
     </div>
   </div>
 
@@ -886,11 +935,33 @@ let visitNumDir='asc';
 let listSelectedDate = todayStrInit();
 let calMode='month', calRefDate=new Date(), selectedCalDate=todayStrInit();
 let homeCoords={lat:35.2271,lng:-80.8431,label:'Charlotte, NC'};
-let leafletMap=null, currentLayer='satellite', tileLayer=null;
+let leafletMap=null, tileLayer=null;
+let currentLayer=loadLocalPref('roundlyMapLayer','satellite');
 let markersGroup=null, routeLine=null, labelLayer=null;
 let pinEntryBuffer='', pinSetupStage=null, pinSetupFirst='';
+// Days the user has run "Optimize Route" on (device-local). For these days the
+// driving order is the stored visit `num` (set by the optimizer); for all
+// other days it's chronological by appointment time.
+let optimizedDates=loadLocalPref('roundlyOptimizedDates',{});
+// Map should re-fit its bounds only when the view/day/home changes — not on
+// every re-render, which would yank the map away while the user pans.
+let mapNeedsFit=true;
+// Road-route result (OSRM) for the currently selected day; null = fall back
+// to straight-line haversine estimates.
+let roadRouteState={key:null,data:null};
 
-function todayStrInit(){return new Date().toISOString().slice(0,10)}
+function loadLocalPref(key,fallback){
+  try{
+    const raw=localStorage.getItem(key);
+    if(raw==null) return fallback;
+    return typeof fallback==='string' ? raw : JSON.parse(raw);
+  }catch(e){ return fallback; }
+}
+function saveLocalPref(key,val){
+  try{ localStorage.setItem(key, typeof val==='string' ? val : JSON.stringify(val)); }catch(e){}
+}
+
+function todayStrInit(){return toDateStr(new Date())}
 
 // ─── SUPABASE CONFIG ──────────────────────────────────────────────────────────
 // Project URL + anon public key — the anon key is meant to be embedded in
@@ -903,9 +974,14 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // ─── TILE CONFIG ──────────────────────────────────────────────────────────────
 const TILES = {
   satellite:{url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',attr:'Tiles &copy; Esri'},
-  street:{url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png',attr:'&copy; OpenStreetMap contributors'},
+  street:{url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png',attr:'&copy; OpenStreetMap contributors',
+          // Dark basemap used for the street layer while the app is in dark
+          // mode, so the map doesn't blast white in a dark UI.
+          darkUrl:'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+          darkAttr:'&copy; OpenStreetMap contributors &copy; CARTO'},
   hybrid:{url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',attr:'Tiles &copy; Esri',labels:'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'}
 };
+function isDarkTheme(){return document.documentElement.getAttribute('data-theme')==='dark'}
 
 // ─── AUTH GATE ────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', initAuthFlow);
@@ -978,7 +1054,6 @@ async function onSignedIn(user){
   document.getElementById('app-loading-overlay').style.display='flex';
 
   await loadAllDataFromSupabase();
-  if(!visits.length && !(await hasAnyServerData())) await loadSampleData();
 
   applyTheme();applyAccent();buildAccentGrid();buildCatDropdown();buildTypeDropdown();buildSettingsRows();
   updatePtsPreview();updateDateStripLabel();
@@ -989,11 +1064,6 @@ async function onSignedIn(user){
   loadPinFromLocal();
   if(pinHash){ showLockScreen(); } else { appUnlocked=true; }
   renderAll();
-}
-
-async function hasAnyServerData(){
-  const { count } = await sb.from('visits').select('*',{count:'exact',head:true}).eq('user_id',currentUser.id);
-  return (count||0) > 0;
 }
 
 // ─── EVENT DELEGATION (fixes "all visits react to one click" bug) ────────────
@@ -1014,7 +1084,10 @@ function handleListClick(e){
 }
 
 // ─── DATE HELPERS ─────────────────────────────────────────────────────────────
-function toDateStr(d){return d.toISOString().slice(0,10)}
+// Built from LOCAL date parts, not toISOString() (which is UTC) — otherwise
+// "today" flips to tomorrow after ~7-8 PM Eastern and evening visits land on
+// the wrong day.
+function toDateStr(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function todayStr(){return toDateStr(new Date())}
 function getWeekBounds(off){
   const now=new Date(),day=now.getDay();
@@ -1115,7 +1188,11 @@ function applyTheme(){
   else document.documentElement.removeAttribute('data-theme');
   document.querySelectorAll('.theme-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('theme-btn-'+themeMode)?.classList.add('active');
-  if(leafletMap) setTimeout(()=>leafletMap.invalidateSize(),100);
+  if(leafletMap){
+    setTimeout(()=>leafletMap.invalidateSize(),100);
+    // Street layer has a dark-mode variant — swap tiles to match the theme
+    if(currentLayer==='street') setLayerOnMap('street');
+  }
 }
 window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',()=>{
   if(themeMode==='auto') applyTheme();
@@ -1342,7 +1419,7 @@ function buildSettingsRows(){
   container.innerHTML=Object.keys(catPoints).map(k=>{
     const isCustom=!!customCats[k];
     return `<div class="setting-row">
-      <span class="setting-name">${CAT_FULL[k]||k}</span>
+      <span class="setting-name">${escAttr(CAT_FULL[k]||k)}</span>
       <input type="number" class="setting-pts-input" id="spt-${k}" value="${(catPoints[k]||0).toFixed(2)}" min="0" max="10" step="0.05">
       ${isCustom?`<button class="setting-remove-btn" onclick="removeCustomCategory('${k}')" title="Remove category">✕</button>`:''}
     </div>`;
@@ -1351,7 +1428,7 @@ function buildSettingsRows(){
   const customTypeKeys=Object.keys(customTypes||{});
   typesEl.innerHTML = customTypeKeys.length
     ? customTypeKeys.map(k=>`<div class="setting-row">
-        <span class="setting-name">${TYPE_LABELS[k]||k}</span>
+        <span class="setting-name">${escAttr(TYPE_LABELS[k]||k)}</span>
         <button class="setting-remove-btn" onclick="removeCustomType('${k}')" title="Remove type">✕</button>
       </div>`).join('')
     : `<div style="font-size:12px;color:var(--text-muted);line-height:1.4">Built-in types (Wound Care, Labwork, PICC, etc.) are always available. Add your own below.</div>`;
@@ -1368,18 +1445,32 @@ function renderSavedPatientsArea(){
     el.innerHTML='No saved patients yet. Patients are saved automatically the first time you add a visit for them.';
     return;
   }
-  el.innerHTML=`<div style="display:flex;flex-direction:column;gap:6px">`+
+  el.innerHTML=`<div style="margin-bottom:6px">Tap a patient to start a new visit for them.</div><div style="display:flex;flex-direction:column;gap:6px">`+
     savedPatients.map(p=>`
       <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--gray-100)">
-        <div style="min-width:0">
+        <div class="tap" data-open-patient="${escAttr(p.name)}" style="min-width:0;flex:1" title="Start a new visit for this patient">
           <div style="font-size:13px;color:var(--text);font-weight:500">${escAttr(p.name)}</div>
           <div style="font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px">${escAttr(p.addr)}</div>
         </div>
-        <button data-remove-patient="${escAttr(p.name)}" style="background:none;border:none;color:var(--red);font-size:13px;cursor:pointer;padding:4px">✕</button>
+        <button data-remove-patient="${escAttr(p.name)}" aria-label="Remove saved patient" style="background:none;border:none;color:var(--red);font-size:13px;cursor:pointer;padding:4px">✕</button>
       </div>`).join('')+`</div>`;
   el.querySelectorAll('[data-remove-patient]').forEach(btn=>{
     btn.addEventListener('click',()=>removeSavedPatient(btn.getAttribute('data-remove-patient')));
   });
+  el.querySelectorAll('[data-open-patient]').forEach(div=>{
+    div.addEventListener('click',()=>newVisitForPatient(div.getAttribute('data-open-patient')));
+  });
+}
+// Start a new visit pre-filled from a saved patient (tapped in Settings)
+function newVisitForPatient(name){
+  const p=savedPatients.find(x=>x.name===name);
+  if(!p) return;
+  closeAllPanels();
+  openAddPanel();
+  document.getElementById('f-name').value=p.name;
+  document.getElementById('f-addr').value=p.addr;
+  document.getElementById('name-dropdown').classList.remove('open');
+  if(p.coords){window._pendingCoords=p.coords;showGeoConfirm(p.addr);}
 }
 async function removeSavedPatient(name){
   savedPatients=savedPatients.filter(p=>p.name!==name);
@@ -1413,7 +1504,7 @@ function buildCatDropdown(){
   const sel=document.getElementById('f-cat');
   const cur=sel.value;
   sel.innerHTML=Object.keys(catPoints).map(k=>
-    `<option value="${k}">${CAT_FULL[k]} — ${catPoints[k].toFixed(2)} pts</option>`).join('');
+    `<option value="${k}">${escAttr(CAT_FULL[k]||k)} — ${catPoints[k].toFixed(2)} pts</option>`).join('');
   if(cur) sel.value=cur;
   updatePtsPreview();
 }
@@ -1421,7 +1512,7 @@ function buildTypeDropdown(){
   const sel=document.getElementById('f-type');
   const cur=sel.value;
   sel.innerHTML=Object.keys(TYPE_LABELS).map(k=>
-    `<option value="${k}">${TYPE_LABELS[k]}</option>`).join('');
+    `<option value="${k}">${escAttr(TYPE_LABELS[k])}</option>`).join('');
   if(cur) sel.value=cur;
 }
 function getPoints(v){return catPoints[v.cat]||0}
@@ -1485,35 +1576,94 @@ function updatePtsPreview(){
   document.getElementById('pts-preview-val').textContent=(catPoints[cat]||0).toFixed(2);
 }
 
-// ─── SAMPLE DATA (only inserted for brand-new accounts with zero rows) ────────
-async function loadSampleData(){
-  const td=todayStr();
-  const samples=[
-    {name:'Mary Johnson',addr:'3210 Selwyn Ave, Charlotte, NC 28209',time:'08:00',dur:45,type:'wound',cat:'soc',notes:'Left leg wound assessment',lat:35.197,lng:-80.844},
-    {name:'Robert Davis',addr:'7812 Ballantyne Commons Pkwy, Charlotte, NC 28277',time:'09:30',dur:30,type:'labwork',cat:'recert',notes:'CBC draw',lat:35.062,lng:-80.874},
-    {name:'Helen Carter',addr:'1540 E 5th St, Charlotte, NC 28204',time:'11:00',dur:60,type:'picc',cat:'routine',notes:'PICC dressing change',lat:35.224,lng:-80.828},
-    {name:"James O'Wilson",addr:'9431 University City Blvd, Charlotte, NC 28213',time:'13:00',dur:30,type:'education',cat:'roc',notes:'Insulin training',lat:35.313,lng:-80.750},
-  ];
-  const uid=currentUser.id;
-  const rows=samples.map((s,i)=>({
-    user_id:uid, num:i+1, name:s.name, addr:s.addr, date:td, time:s.time, dur:s.dur,
-    type:s.type, cat:s.cat, notes:s.notes, status:'pending', lat:s.lat, lng:s.lng
-  }));
-  await sb.from('visits').insert(rows);
-  for(const s of samples){
-    await sb.from('saved_patients').upsert({
-      user_id:uid, name:s.name, addr:s.addr, lat:s.lat, lng:s.lng
-    },{onConflict:'user_id,name'});
-  }
-  await loadAllDataFromSupabase();
-}
-
 // ─── HAVERSINE ────────────────────────────────────────────────────────────────
 function haversine(c1,c2){
   const R=3958.8,toR=Math.PI/180;
   const dLat=(c2.lat-c1.lat)*toR,dLng=(c2.lng-c1.lng)*toR;
   const a=Math.sin(dLat/2)**2+Math.cos(c1.lat*toR)*Math.cos(c2.lat*toR)*Math.sin(dLng/2)**2;
   return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+// ─── OSRM ROAD ROUTING ────────────────────────────────────────────────────────
+// Real driving routes + distances from the free OSRM demo server (no API key).
+// Powers the drawn route line and mileage numbers. Everything falls back to
+// straight-line haversine estimates whenever the service is unreachable.
+const osrmCache=new Map(); // routeKey → {miles, legMiles[], geometry[[lat,lng],...]}
+
+function routeKeyFor(coordList){
+  return coordList.map(c=>c.lat.toFixed(5)+','+c.lng.toFixed(5)).join(';');
+}
+// Home → stops in driving order → home, pinned visits only.
+function currentRouteCoords(){
+  const stops=routeVisits(listSelectedDate).filter(v=>v.coords);
+  if(!stops.length) return null;
+  return [homeCoords,...stops.map(v=>v.coords),homeCoords];
+}
+async function osrmRoute(coordList){
+  if(!coordList||coordList.length<2) return null;
+  const key=routeKeyFor(coordList);
+  if(osrmCache.has(key)) return osrmCache.get(key);
+  const coords=coordList.map(c=>c.lng+','+c.lat).join(';');
+  const url=`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=false`;
+  try{
+    const r=await fetch(url);
+    if(!r.ok) return null;
+    const j=await r.json();
+    const route=j?.routes?.[0];
+    if(!route) return null;
+    const result={
+      miles: route.distance/1609.344,
+      legMiles: (route.legs||[]).map(l=>l.distance/1609.344),
+      geometry: (route.geometry?.coordinates||[]).map(([lng,lat])=>[lat,lng])
+    };
+    if(osrmCache.size>60) osrmCache.delete(osrmCache.keys().next().value);
+    osrmCache.set(key,result);
+    return result;
+  }catch(e){ return null; }
+}
+// Road data for the selected day, or null if not (yet) fetched / stale.
+function roadData(){
+  const list=currentRouteCoords();
+  if(!list||!roadRouteState.data) return null;
+  return roadRouteState.key===routeKeyFor(list) ? roadRouteState.data : null;
+}
+// Fetch (or re-fetch after a change) the selected day's road route, then
+// refresh whatever is showing mileage. Fire-and-forget from renderAll — the
+// roadRouteState.key guard stops this from looping, the in-flight guard stops
+// duplicate fetches, and a failure cooldown avoids hammering OSRM when it's
+// down (haversine fallback shows in the meantime).
+let roadRouteFetching=null, roadRouteFailed={key:null,at:0};
+async function refreshRoadRoute(){
+  const list=currentRouteCoords();
+  if(!list){ roadRouteState={key:null,data:null}; return; }
+  const key=routeKeyFor(list);
+  if(roadRouteState.key===key && roadRouteState.data) return;
+  if(roadRouteFetching===key) return;
+  if(roadRouteFailed.key===key && Date.now()-roadRouteFailed.at<60000) return;
+  roadRouteFetching=key;
+  const data=await osrmRoute(list);
+  roadRouteFetching=null;
+  if(!data){ roadRouteFailed={key,at:Date.now()}; return; }
+  const cur=currentRouteCoords();
+  if(cur && routeKeyFor(cur)===key){
+    roadRouteState={key,data};
+    renderStats();renderList();
+    if(currentView==='map')updateMapMarkers();
+    if(currentView==='summary')renderSummary();
+  }
+}
+// Miles for the leg ENDING at visit v (from home or the previous pinned stop),
+// in the day's driving order. Road distance when available, haversine estimate
+// otherwise. Returns {miles, fromBase} or null for unpinned visits.
+function legInfoFor(v){
+  const route=routeVisits(v.date).filter(x=>x.coords);
+  const ri=route.findIndex(x=>x.id===v.id);
+  if(ri<0) return null;
+  const rd=(v.date===listSelectedDate)?roadData():null;
+  const miles=(rd&&rd.legMiles[ri]!=null)
+    ? rd.legMiles[ri]
+    : haversine(ri===0?homeCoords:route[ri-1].coords, v.coords);
+  return {miles, fromBase:ri===0};
 }
 
 // ─── SAVED PATIENTS (autocomplete for repeat visits) ──────────────────────────
@@ -1588,16 +1738,9 @@ function setupOneAddrField(inputId,dropdownId,isHome){
 async function fetchSuggestions(q,dd,inputId,isHome){
   dd.innerHTML='<div class="addr-searching">Searching…</div>';dd.classList.add('open');
   try{
-    let results = await photonSearch(q);
-
-    // FALLBACK: if the raw query comes back empty, try a comma-inserted
-    // version — helps in edge cases with ambiguous multi-word street names.
-    if(!results.length){
-      const commaGuess = guessCommaPlacement(q);
-      if(commaGuess !== q){
-        results = await photonSearch(commaGuess);
-      }
-    }
+    // Walks the variant ladder (raw → commas → expanded abbreviations) and
+    // keeps a typed house number even when only the street matches.
+    let results = await geocodeSearch(q);
 
     if(!results.length){
       dd.innerHTML='<div class="addr-searching">No matches found. Try format: Street, City, State (e.g. "123 Main St, Charlotte, NC")</div>';
@@ -1648,9 +1791,94 @@ async function photonSearch(q){
     return {
       lat: coords[1],
       lon: coords[0],
-      display_name: parts.join(', ')
+      display_name: parts.join(', '),
+      hasHouseNumber: !!p.housenumber,
+      isStreet: p.osm_key === 'highway'
     };
   }).filter(r => r.lat != null && r.lon != null);
+}
+
+// ─── GEOCODE SEARCH LADDER ────────────────────────────────────────────────────
+// Photon is very literal: "7812 Ballantyne Commons Pkwy, Charlotte, NC"
+// returns NOTHING while "…Parkway…" matches, and comma-less queries can also
+// come up empty. So every lookup walks a ladder of query variants until one
+// hits: raw → comma-guessed → abbreviations expanded → expanded + commas.
+const STREET_ABBREVS={
+  pkwy:'Parkway', blvd:'Boulevard', ave:'Avenue', av:'Avenue', rd:'Road',
+  dr:'Drive', ln:'Lane', ct:'Court', cir:'Circle', hwy:'Highway', pl:'Place',
+  ter:'Terrace', trl:'Trail', xing:'Crossing', pt:'Point', sq:'Square', st:'Street'
+};
+function expandAbbrevs(q){
+  const words=q.split(/\s+/);
+  return words.map((w,i)=>{
+    const bare=w.replace(/[.,]+$/,'');
+    const punct=w.slice(bare.length);
+    const full=STREET_ABBREVS[bare.toLowerCase()];
+    if(!full) return w;
+    // "St" is ambiguous: suffix in "123 Main St Charlotte" but Saint in
+    // "123 St Marks Ave" / "St Marks Ave". Treat it as Saint (don't expand)
+    // when it starts the query or directly follows the house number.
+    if(bare.toLowerCase()==='st'){
+      const prev=i>0?words[i-1].replace(/[.,]+$/,''):'';
+      if(!prev || /^\d+[a-zA-Z]?$/.test(prev)) return w;
+    }
+    return full+punct;
+  }).join(' ');
+}
+async function geocodeSearch(q){
+  const variants=[q];
+  const addVariant=v=>{ if(v && !variants.includes(v)) variants.push(v); };
+  addVariant(guessCommaPlacement(q));
+  const ex=expandAbbrevs(q);
+  addVariant(ex);
+  addVariant(guessCommaPlacement(ex));
+  // A variant can return junk fuzzy matches (raw "…Blvd…" once matched a bus
+  // stop on a different road) — keep walking the ladder until some result
+  // actually mentions the street the user typed; fall back to the first
+  // non-empty set if none ever does.
+  const streetWord=queryStreetWord(q);
+  const plausible=rs=>!streetWord||rs.some(r=>r.display_name.toLowerCase().includes(streetWord));
+  let firstNonEmpty=[];
+  for(const v of variants){
+    const rs=await photonSearch(v);
+    if(!rs.length) continue;
+    if(!firstNonEmpty.length) firstNonEmpty=rs;
+    if(plausible(rs)) return applyUserHouseNumber(q,rankResults(rs,streetWord));
+  }
+  return applyUserHouseNumber(q,rankResults(firstNonEmpty,streetWord));
+}
+// First distinctive word of the street name (after any house number) — used
+// to sanity-check and rank geocoder results against what the user typed.
+// Skips words under 3 chars ("St", "N") which match almost anything.
+function queryStreetWord(q){
+  const m=q.match(/^\s*(?:\d+[a-zA-Z]?\s+)?(.+)/);
+  if(!m) return '';
+  const words=m[1].split(/[\s,]+/).filter(Boolean);
+  return (words.find(w=>w.length>=3)||words[0]||'').toLowerCase();
+}
+function rankResults(rs,streetWord){
+  return rs.slice().sort((a,b)=>{
+    const am=streetWord&&a.display_name.toLowerCase().includes(streetWord)?1:0;
+    const bm=streetWord&&b.display_name.toLowerCase().includes(streetWord)?1:0;
+    if(am!==bm) return bm-am;
+    return (b.hasHouseNumber?1:0)-(a.hasHouseNumber?1:0);
+  });
+}
+// Many US house numbers simply aren't in OpenStreetMap, so a legit full
+// address often only matches its STREET. Don't throw the user's house number
+// away in that case: keep it in the address text (the record + Google
+// navigation stay exact) and pin the visit to the street match (close enough
+// for the route line and mileage).
+function applyUserHouseNumber(q,results){
+  const m=q.match(/^\s*(\d+[a-zA-Z]?)\s+(.+)/);
+  if(!m) return results;
+  const num=m[1];
+  const streetWord=queryStreetWord(q);
+  return results.map(r=>{
+    if(r.hasHouseNumber||!r.isStreet) return r;
+    if(streetWord && !r.display_name.toLowerCase().includes(streetWord)) return r;
+    return {...r, display_name:num+' '+r.display_name, approx:true};
+  });
 }
 
 // Heuristic: turns "123 Main St Charlotte NC 28202" into
@@ -1682,13 +1910,15 @@ function selectAddr(res,inputId,dd,isHome){
     document.getElementById('home-confirmed').classList.add('show');
   } else {
     window._pendingCoords={lat,lng};
-    showGeoConfirm(display);
+    showGeoConfirm(display,res.approx);
   }
 }
-function showGeoConfirm(display){
+function showGeoConfirm(display,approx){
   document.getElementById('geo-warn-box').classList.remove('show');
   const ok=document.getElementById('geo-confirm-box');
-  ok.textContent=`✓ Location pinned: ${display}`;
+  ok.textContent=approx
+    ? `✓ Address saved: ${display} — map pin placed on the street (navigation will use the exact address)`
+    : `✓ Location pinned: ${display}`;
   ok.classList.add('show');
 }
 
@@ -1701,11 +1931,7 @@ async function setHomeBase(){
     window._pendingHomeCoords=null;
   } else {
     try{
-      let d = await photonSearch(addr);
-      if(!d.length){
-        const commaGuess = guessCommaPlacement(addr);
-        if(commaGuess !== addr) d = await photonSearch(commaGuess);
-      }
+      const d = await geocodeSearch(addr);
       if(d.length){
         homeCoords={lat:parseFloat(d[0].lat),lng:parseFloat(d[0].lon),label:addr};
         document.getElementById('home-confirmed-text').textContent=`Matched to: ${d[0].display_name}`;
@@ -1719,8 +1945,9 @@ async function setHomeBase(){
       return;
     }
   }
-  await saveUserSettings();showToast('🏠 Home base updated');renderAll();
-  if(leafletMap)leafletMap.setView([homeCoords.lat,homeCoords.lng],11);
+  await saveUserSettings();showToast('🏠 Home base updated');
+  mapNeedsFit=true;renderAll();
+  if(leafletMap&&currentView!=='map')leafletMap.setView([homeCoords.lat,homeCoords.lng],11);
 }
 
 // ─── ADD / EDIT VISIT ─────────────────────────────────────────────────────────
@@ -1743,11 +1970,7 @@ async function submitVisitForm(){
 
   if(!coords){
     try{
-      let d = await photonSearch(addr);
-      if(!d.length){
-        const commaGuess = guessCommaPlacement(addr);
-        if(commaGuess !== addr) d = await photonSearch(commaGuess);
-      }
+      const d = await geocodeSearch(addr);
       if(d.length) coords={lat:parseFloat(d[0].lat),lng:parseFloat(d[0].lon)};
     }catch(e){}
   }
@@ -1820,10 +2043,10 @@ function openEditPanel(id){
   document.getElementById('add-panel').classList.add('open');
   document.getElementById('overlay').classList.add('open');
 }
-function deleteFromEditPanel(){
+async function deleteFromEditPanel(){
   const id=parseInt(document.getElementById('f-delete-btn').getAttribute('data-id'));
   if(!id) return;
-  deleteVisit(id);closeAllPanels();showToast('🗑️ Visit deleted');
+  if(await deleteVisit(id)){closeAllPanels();showToast('🗑️ Visit deleted');}
 }
 
 // ─── VISIT ACTIONS ────────────────────────────────────────────────────────────
@@ -1832,28 +2055,33 @@ async function markDone(id){
   if(!v) return;
   v.status=(v.status==='done')?'pending':'done';
   renderAll();
-  await sb.from('visits').update({status:v.status}).eq('id',id).eq('user_id',currentUser.id);
+  const {error}=await sb.from('visits').update({status:v.status}).eq('id',id).eq('user_id',currentUser.id);
+  if(error) showToast('⚠️ Couldn\'t sync — check connection');
 }
 async function markSkip(id){
   const v=visits.find(v=>v.id===id);
   if(!v) return;
   v.status=(v.status==='skipped')?'pending':'skipped';
   renderAll();
-  await sb.from('visits').update({status:v.status}).eq('id',id).eq('user_id',currentUser.id);
+  const {error}=await sb.from('visits').update({status:v.status}).eq('id',id).eq('user_id',currentUser.id);
+  if(error) showToast('⚠️ Couldn\'t sync — check connection');
 }
 async function deleteVisit(id){
   const v=visits.find(x=>x.id===id);
-  if(!v) return;
+  if(!v) return false;
+  if(!confirm(`Delete visit for ${v.name}? This can't be undone.`)) return false;
   const date=v.date;
   visits=visits.filter(v=>v.id!==id);
   visits.filter(x=>x.date===date).forEach((v,i)=>v.num=i+1);
   renderAll();
-  await sb.from('visits').delete().eq('id',id).eq('user_id',currentUser.id);
+  const {error}=await sb.from('visits').delete().eq('id',id).eq('user_id',currentUser.id);
+  if(error) showToast('⚠️ Couldn\'t sync delete — check connection');
   // Renumber remaining same-day visits server-side too, so ordering stays correct
   const sameDay=visits.filter(x=>x.date===date);
   for(const sv of sameDay){
     await sb.from('visits').update({num:sv.num}).eq('id',sv.id).eq('user_id',currentUser.id);
   }
+  return true;
 }
 function navTo(id){
   const v=visits.find(v=>v.id===id);
@@ -1902,17 +2130,14 @@ function getSorted(){
   else{const o={pending:0,done:1,skipped:2};v.sort((a,b)=>(o[a.status]||0)-(o[b.status]||0));}
   return v;
 }
-// The number shown on a visit's map pin / list bubble is its position among
-// that day's visits ordered by appointment time (earliest = 1), flippable via
-// the direction toggle. This is derived on the fly so it's always correct and
-// needs no database writes.
-function dayVisitsByTime(dateStr){
-  const arr=visits.filter(x=>x.date===dateStr).slice().sort((a,b)=>a.time.localeCompare(b.time));
-  if(visitNumDir==='desc')arr.reverse();
-  return arr;
-}
+// The number shown on a visit's map pin / list bubble is its position in the
+// day's DRIVING order (see routeVisits — time order, or optimized order after
+// "Optimize Route"), flippable via the direction toggle. Derived on the fly so
+// it's always correct and needs no database writes.
 function visitNumber(v){
-  return dayVisitsByTime(v.date).findIndex(x=>x.id===v.id)+1;
+  const arr=routeVisits(v.date);
+  if(visitNumDir==='desc')arr.reverse();
+  return arr.findIndex(x=>x.id===v.id)+1;
 }
 function toggleVisitNumDir(){
   visitNumDir = visitNumDir==='asc' ? 'desc' : 'asc';
@@ -1928,24 +2153,45 @@ function shiftListDate(dir){
   const d=new Date(listSelectedDate+'T12:00:00');
   d.setDate(d.getDate()+dir);
   listSelectedDate=toDateStr(d);
+  mapNeedsFit=true;
   updateDateStripLabel();renderAll();
 }
-function goToToday(){listSelectedDate=todayStr();updateDateStripLabel();renderAll();}
+function goToToday(){listSelectedDate=todayStr();mapNeedsFit=true;updateDateStripLabel();renderAll();}
 function updateDateStripLabel(){
   const isToday=listSelectedDate===todayStr();
   const d=new Date(listSelectedDate+'T12:00:00');
-  document.getElementById('date-strip-label').textContent=isToday?'Today — '+d.toLocaleDateString('en-US',{month:'short',day:'numeric'}):d.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+  const label=isToday?'Today — '+d.toLocaleDateString('en-US',{month:'short',day:'numeric'}):d.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+  document.getElementById('date-strip-label').textContent=label;
   document.getElementById('date-strip-today-btn').style.display=isToday?'none':'inline-block';
+  // The Map view has its own copy of the date strip — keep it in sync
+  document.getElementById('map-date-label').textContent=label;
+  document.getElementById('map-date-today-btn').style.display=isToday?'none':'inline-block';
 }
 
 // ─── ROUTE / POINTS CALCS ──────────────────────────────────────────────────────
+// The DRIVING order for a day. Normally chronological by appointment time;
+// once the user runs "Optimize Route" on a day, that day follows the stored
+// visit `num` order the optimizer wrote. Mileage, the drawn route, pin
+// numbers, and per-leg distances all use this — NOT the display sort — so
+// switching the list to "Status" sort doesn't reshuffle the route.
+function routeVisits(dateStr){
+  const arr=visits.filter(x=>x.date===dateStr).slice();
+  if(optimizedDates[dateStr]) arr.sort((a,b)=>a.num-b.num||a.time.localeCompare(b.time));
+  else arr.sort((a,b)=>a.time.localeCompare(b.time)||a.num-b.num);
+  return arr;
+}
 function calcTotalMiles(){
-  const s=getSorted().filter(v=>v.coords);
+  const rd=roadData();
+  if(rd) return rd.miles;
+  const s=routeVisits(listSelectedDate).filter(v=>v.coords);
   if(!s.length)return 0;
   let t=0,prev=homeCoords;
   for(const v of s){t+=haversine(prev,v.coords);prev=v.coords;}
   return t+haversine(prev,homeCoords);
 }
+// True when today's mileage figure comes from real road routing (OSRM) rather
+// than the straight-line estimate.
+function milesAreRoad(){return !!roadData();}
 function calcWeekVisitPoints(off){
   const{monday,sunday}=getWeekBounds(off);
   return visits.filter(v=>{const d=new Date(v.date+'T12:00:00');return d>=monday&&d<=sunday&&v.status!=='skipped';})
@@ -1963,6 +2209,29 @@ function calcDayPoints(dateStr){
   return vp+ep;
 }
 
+// 2-opt improvement pass: keep reversing route segments while doing so
+// shortens the round trip. Cleans up the crossings a greedy nearest-neighbor
+// route leaves behind; instant at a normal day's visit count.
+function twoOptImprove(order){
+  if(order.length<3) return order;
+  let improved=true;
+  while(improved){
+    improved=false;
+    for(let i=0;i<order.length-1;i++){
+      for(let j=i+1;j<order.length;j++){
+        const a=i===0?homeCoords:order[i-1].coords;
+        const b=order[i].coords, c=order[j].coords;
+        const d=(j===order.length-1)?homeCoords:order[j+1].coords;
+        if(haversine(a,c)+haversine(b,d) < haversine(a,b)+haversine(c,d)-1e-9){
+          const seg=order.slice(i,j+1).reverse();
+          order.splice(i,seg.length,...seg);
+          improved=true;
+        }
+      }
+    }
+  }
+  return order;
+}
 async function optimizeRoute(){
   const ld=listSelectedDate;
   let today=visits.filter(v=>v.date===ld),other=visits.filter(v=>v.date!==ld);
@@ -1973,29 +2242,47 @@ async function optimizeRoute(){
     for(const v of rem){if(!v.coords)continue;const dist=haversine(cur,v.coords);if(dist<bd){bd=dist;best=v;}}
     if(!best)break;order.push(best);rem=rem.filter(v=>v.id!==best.id);cur=best.coords;
   }
+  order=twoOptImprove(order);
+  // Visits without a map pin can't be routed — keep them at the END of the
+  // order instead of silently dropping them from the local list.
+  const unpinned=rem;
+  order=order.concat(unpinned);
+  // From now on this day's driving order follows the optimized numbering
+  // (routeVisits checks this flag; device-local preference).
+  optimizedDates[ld]=true;
+  saveLocalPref('roundlyOptimizedDates',optimizedDates);
+  mapNeedsFit=true;
   visits=[...other,...order];
   const reordered=visits.filter(v=>v.date===ld);
   reordered.forEach((v,i)=>v.num=i+1);
-  showToast('⚡ Route optimized!');renderAll();
+  setSort('num'); // show the driving order in the list (also re-renders)
+  showToast(unpinned.length
+    ? `⚡ Route optimized — ${unpinned.length} visit${unpinned.length>1?'s':''} without a pin kept at end`
+    : '⚡ Route optimized!');
+  let syncFailed=false;
   for(const v of reordered){
-    await sb.from('visits').update({num:v.num}).eq('id',v.id).eq('user_id',currentUser.id);
+    const {error}=await sb.from('visits').update({num:v.num}).eq('id',v.id).eq('user_id',currentUser.id);
+    if(error) syncFailed=true;
   }
+  if(syncFailed) showToast('⚠️ Couldn\'t sync new order — check connection');
 }
 function openFullRoute(){
-  const sorted=getSorted().filter(v=>v.coords);
+  const sorted=routeVisits(listSelectedDate).filter(v=>v.coords);
   if(!sorted.length){showToast('No visits to map');return;}
   const wps=sorted.map(v=>encodeURIComponent(v.addr)).join('|');
   window.open(`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(homeCoords.label)}&destination=${encodeURIComponent(homeCoords.label)}&waypoints=${wps}&travelmode=driving`,'_blank');
 }
 
 // ─── VIEWS ────────────────────────────────────────────────────────────────────
+// Header stat tiles / weekly bar tap-through: always land on the CURRENT week
+function openPointsView(){viewingWeekOffset=0;switchView('points');}
 function switchView(view){
   currentView=view;
   ['list','map','summary','points','calendar'].forEach(v=>{
     document.getElementById('view-'+v).classList.toggle('visible',v===view);
     document.getElementById('nav-'+v).classList.toggle('active',v===view);
   });
-  if(view==='map')setTimeout(initOrRefreshMap,80);
+  if(view==='map'){mapNeedsFit=true;setTimeout(initOrRefreshMap,80);}
   if(view==='summary')renderSummary();
   if(view==='points')renderPoints();
   if(view==='calendar')renderCalendar();
@@ -2059,8 +2346,14 @@ function renderCalMonthGrid(){
     </div>`;
   }
   grid.innerHTML=html;
+  // First tap selects the day (its detail shows below); tapping the
+  // already-selected day jumps to it in the Visits tab.
   grid.querySelectorAll('.cal-day').forEach(el=>{
-    el.addEventListener('click',()=>selectDateAndGoToList(el.getAttribute('data-date')));
+    el.addEventListener('click',()=>{
+      const ds=el.getAttribute('data-date');
+      if(ds===selectedCalDate) selectDateAndGoToList(ds);
+      else selectCalDate(ds);
+    });
   });
 }
 
@@ -2085,8 +2378,13 @@ function renderCalWeekStrip(){
     </div>`;
   }
   strip.innerHTML=html;
+  // Same two-tap behavior as the month grid: select first, jump on second tap
   strip.querySelectorAll('.cal-week-day').forEach(el=>{
-    el.addEventListener('click',()=>selectDateAndGoToList(el.getAttribute('data-date')));
+    el.addEventListener('click',()=>{
+      const ds=el.getAttribute('data-date');
+      if(ds===selectedCalDate) selectDateAndGoToList(ds);
+      else selectCalDate(ds);
+    });
   });
 }
 
@@ -2106,22 +2404,22 @@ function renderCalDayDetail(){
     const pts=getPoints(v);
     const statusColor=v.status==='done'?'#0E7C66':v.status==='skipped'?'#9AA4B0':'#A85A0E';
     html+=`<div class="visit-card status-${v.status}" style="margin-bottom:8px">
-      <div class="card-top">
+      <div class="card-top" onclick="openEditPanel(${v.id})" title="Tap to edit">
         <div class="visit-num-bubble">${visitNumber(v)}</div>
         <div class="card-info">
           <div class="card-name">${escAttr(v.name)}</div>
-          <div class="card-addr">📍 ${escAttr(v.addr)}</div>
+          <div class="card-addr" onclick="event.stopPropagation();navTo(${v.id})" title="Tap to navigate">📍 ${escAttr(v.addr)}</div>
           <div class="card-tags">
             <span class="tag tag-time">⏰ ${v.time}</span>
-            <span class="tag tag-type">${TYPE_LABELS[v.type]||v.type}</span>
-            <span class="tag tag-visit">${CAT_LABELS[v.cat]||v.cat}</span>
+            <span class="tag tag-type">${escAttr(TYPE_LABELS[v.type]||v.type)}</span>
+            <span class="tag tag-visit">${escAttr(CAT_LABELS[v.cat]||v.cat)}</span>
           </div>
         </div>
         <div class="card-pts-badge"><div class="pts-circle"><span class="pts-num">${pts}</span><span class="pts-word">pts</span></div></div>
       </div>
       <div class="card-actions">
         <button class="card-action-btn" onclick="selectDateAndGoToList('${ds}')" style="color:var(--accent-mid)"><span class="act-icon">📋</span>Open in Visits</button>
-        <button class="card-action-btn" data-action="edit" data-id="${v.id}" onclick="openEditPanel(${v.id})"><span class="act-icon">✏️</span>Edit</button>
+        <button class="card-action-btn" onclick="openEditPanel(${v.id})"><span class="act-icon">✏️</span>Edit</button>
       </div>
     </div>`;
   });
@@ -2137,6 +2435,7 @@ function renderCalDayDetail(){
 }
 function selectDateAndGoToList(ds){
   listSelectedDate=ds;
+  mapNeedsFit=true;
   updateDateStripLabel();
   switchView('list');
 }
@@ -2145,13 +2444,14 @@ function selectDateAndGoToList(ds){
 function initOrRefreshMap(){
   if(!leafletMap){
     leafletMap=L.map('leaflet-map',{zoomControl:true});
-    setLayerOnMap('satellite');
+    setLayer(currentLayer); // restores the layer remembered on this device
     leafletMap.setView([homeCoords.lat,homeCoords.lng],11);
   } else {leafletMap.invalidateSize();}
   updateMapMarkers();
 }
 function setLayer(name){
   currentLayer=name;
+  saveLocalPref('roundlyMapLayer',name);
   document.querySelectorAll('.layer-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('btn-'+name).classList.add('active');
   if(leafletMap)setLayerOnMap(name);
@@ -2160,13 +2460,17 @@ function setLayerOnMap(name){
   if(tileLayer){leafletMap.removeLayer(tileLayer);tileLayer=null;}
   if(labelLayer){leafletMap.removeLayer(labelLayer);labelLayer=null;}
   const cfg=TILES[name];
-  tileLayer=L.tileLayer(cfg.url,{attribution:cfg.attr,maxZoom:19}).addTo(leafletMap);
+  const useDark=name==='street'&&cfg.darkUrl&&isDarkTheme();
+  tileLayer=L.tileLayer(useDark?cfg.darkUrl:cfg.url,{attribution:useDark?cfg.darkAttr:cfg.attr,maxZoom:19}).addTo(leafletMap);
   if(name==='hybrid'&&cfg.labels)
     labelLayer=L.tileLayer(cfg.labels,{attribution:'',maxZoom:19,opacity:0.85}).addTo(leafletMap);
 }
 function makePin(v){
   const color=v.status==='done'?'#0E7C66':v.status==='skipped'?'#888':'#A85A0E';
-  return L.divIcon({html:`<div class="marker-pin" style="background:${color}">${visitNumber(v)}</div>`,className:'',iconSize:[28,28],iconAnchor:[14,14],popupAnchor:[0,-16]});
+  // Highlight the next pending stop in the driving order
+  const nextPending=routeVisits(v.date).find(x=>x.status==='pending'&&x.coords);
+  const isNext=!!nextPending&&nextPending.id===v.id;
+  return L.divIcon({html:`<div class="marker-pin${isNext?' next-stop':''}" style="background:${color}">${visitNumber(v)}</div>`,className:'',iconSize:[28,28],iconAnchor:[14,14],popupAnchor:[0,-16]});
 }
 function makeHomePin(){
   return L.divIcon({html:`<div class="marker-pin" style="background:#1B4F72;width:34px;height:34px;font-size:16px">🏠</div>`,className:'',iconSize:[34,34],iconAnchor:[17,17],popupAnchor:[0,-18]});
@@ -2175,7 +2479,8 @@ function updateMapMarkers(){
   if(!leafletMap)return;
   if(markersGroup)leafletMap.removeLayer(markersGroup);
   if(routeLine)leafletMap.removeLayer(routeLine);
-  const sorted=getSorted();
+  // Markers + route follow the day's DRIVING order, not the list's display sort
+  const sorted=routeVisits(listSelectedDate);
   const group=L.featureGroup();
   const routeCoords=[[homeCoords.lat,homeCoords.lng]];
   L.marker([homeCoords.lat,homeCoords.lng],{icon:makeHomePin()})
@@ -2190,25 +2495,53 @@ function updateMapMarkers(){
         <p>📍 ${escAttr(v.addr)}</p>
         <p>⏰ ${v.time} &nbsp;|&nbsp; ⏱ ${v.dur} min</p>
         <p>
-          <span class="pop-tag" style="background:#D6EAF8;color:#1B4F72">${CAT_LABELS[v.cat]||v.cat}</span>
-          <span class="pop-tag" style="background:#FDEBD0;color:#A85A0E">${TYPE_LABELS[v.type]||v.type}</span>
+          <span class="pop-tag" style="background:#D6EAF8;color:#1B4F72">${escAttr(CAT_LABELS[v.cat]||v.cat)}</span>
+          <span class="pop-tag" style="background:#FDEBD0;color:#A85A0E">${escAttr(TYPE_LABELS[v.type]||v.type)}</span>
           <span class="pop-tag" style="background:#E8DAEF;color:#6C3483">⭐ ${pts} pts</span>
         </p>
         ${v.notes?`<p style="font-style:italic;font-size:11px">💬 ${escAttr(v.notes)}</p>`:''}
+        <div class="pop-row">
+          <button class="pop-btn" style="background:var(--teal)" data-action="done" data-id="${v.id}">${v.status==='done'?'↩️ Undo':'✅ Done'}</button>
+          <button class="pop-btn" style="background:var(--gray-600)" data-action="edit" data-id="${v.id}">✏️ Edit</button>
+        </div>
         <button class="btn-nav" data-action="nav" data-id="${v.id}">🧭 Navigate here</button>
       </div>`,{maxWidth:260})
       .addTo(group);
     routeCoords.push([v.coords.lat,v.coords.lng]);
   });
   if(routeCoords.length>1)routeCoords.push([homeCoords.lat,homeCoords.lng]);
-  routeLine=L.polyline(routeCoords,{color:'#2471A3',weight:3,opacity:0.7,dashArray:'8,6'}).addTo(leafletMap);
+  // Solid road-following line when OSRM data is available; dashed straight
+  // lines between pins as the offline fallback.
+  const rd=roadData();
+  const accentMid=(getComputedStyle(document.documentElement).getPropertyValue('--accent-mid')||'#2471A3').trim();
+  if(rd&&rd.geometry.length>1){
+    routeLine=L.polyline(rd.geometry,{color:accentMid,weight:4,opacity:0.85}).addTo(leafletMap);
+  } else {
+    routeLine=L.polyline(routeCoords,{color:accentMid,weight:3,opacity:0.7,dashArray:'8,6'}).addTo(leafletMap);
+  }
   markersGroup=group;group.addTo(leafletMap);
   leafletMap.off('popupopen');
   leafletMap.on('popupopen',(e)=>{
-    const btn=e.popup._contentNode.querySelector('[data-action="nav"]');
-    if(btn) btn.addEventListener('click',()=>navTo(parseInt(btn.getAttribute('data-id'))));
+    // onclick assignment (not addEventListener) — Leaflet reuses the popup
+    // content node, so addEventListener would stack duplicate handlers on
+    // every reopen and fire actions multiple times.
+    e.popup._contentNode.querySelectorAll('[data-action]').forEach(btn=>{
+      const act=btn.getAttribute('data-action');
+      const id=parseInt(btn.getAttribute('data-id'));
+      btn.onclick=()=>{
+        if(act==='nav') navTo(id);
+        else if(act==='done'){leafletMap.closePopup();markDone(id);}
+        else if(act==='edit'){leafletMap.closePopup();openEditPanel(id);}
+      };
+    });
   });
-  try{if(group.getLayers().length)leafletMap.fitBounds(group.getBounds().pad(0.15));}catch(e){}
+  if(mapNeedsFit){
+    try{if(group.getLayers().length){leafletMap.fitBounds(group.getBounds().pad(0.15));mapNeedsFit=false;}}catch(e){}
+  }
+}
+function fitMapToRoute(){
+  mapNeedsFit=true;
+  updateMapMarkers();
 }
 
 // ─── RENDER LIST ──────────────────────────────────────────────────────────────
@@ -2217,24 +2550,32 @@ function renderList(){
   const sorted=getSorted();
   if(!sorted.length){
     const isToday=listSelectedDate===todayStr();
-    c.innerHTML=`<div class="empty-state"><div class="empty-icon">🗓️</div><p>No visits for ${isToday?'today':'this day'}.<br>Tap <strong>+</strong> to add a patient.</p></div>`;
+    // Brand-new account (no visits anywhere yet) gets a welcome instead
+    c.innerHTML=visits.length===0
+      ? `<div class="empty-state tap" onclick="openAddPanel()" title="Add your first visit"><div class="empty-icon">👋</div><p><strong>Welcome to Roundly!</strong><br>Tap here or the <strong>+</strong> button to add your first patient visit — your route, mileage, and points build from there.</p></div>`
+      : `<div class="empty-state tap" onclick="openAddPanel()" title="Add a visit"><div class="empty-icon">🗓️</div><p>No visits for ${isToday?'today':'this day'}.<br>Tap <strong>+</strong> to add a patient.</p></div>`;
     return;
   }
+  // Leg distances come from the ROUTE order (driving order), not the display
+  // sort, so the "🚗 x mi" chips stay truthful whatever sort is active.
+  const legOf=(v)=>{
+    const li=legInfoFor(v);
+    return li ? li.miles.toFixed(1)+' mi'+(li.fromBase?' from base':'') : '';
+  };
   c.innerHTML=sorted.map((v,i)=>{
-    const prev=i>0&&sorted[i-1].coords&&v.coords;
-    const dist=prev?haversine(sorted[i-1].coords,v.coords).toFixed(1)+' mi':(i===0&&v.coords?haversine(homeCoords,v.coords).toFixed(1)+' mi from base':'');
+    const dist=legOf(v);
     const pts=getPoints(v);
     return `<div class="visit-card status-${v.status}">
-      <div class="card-top">
+      <div class="card-top" data-action="edit" data-id="${v.id}" title="Tap to edit">
         <div class="visit-num-bubble">${visitNumber(v)}</div>
         <div class="card-info">
           <div class="card-name">${escAttr(v.name)}</div>
-          <div class="card-addr">📍 ${escAttr(v.addr)}</div>
+          <div class="card-addr" data-action="nav" data-id="${v.id}" title="Tap to navigate">📍 ${escAttr(v.addr)}</div>
           <div class="card-tags">
             <span class="tag tag-time">⏰ ${v.time}</span>
             <span class="tag tag-dur">⏱ ${v.dur}m</span>
-            <span class="tag tag-type">${TYPE_LABELS[v.type]||v.type}</span>
-            <span class="tag tag-visit">${CAT_LABELS[v.cat]||v.cat}</span>
+            <span class="tag tag-type">${escAttr(TYPE_LABELS[v.type]||v.type)}</span>
+            <span class="tag tag-visit">${escAttr(CAT_LABELS[v.cat]||v.cat)}</span>
             ${dist?`<span class="tag tag-miles">🚗 ${dist}</span>`:''}
           </div>
         </div>
@@ -2260,7 +2601,10 @@ function renderStats(){
   const remain=Math.max(0,weeklyTarget-weekPts);
   const pct=Math.min(100,(weekPts/weeklyTarget)*100);
   document.getElementById('stat-miles').textContent=mi.toFixed(1);
+  document.getElementById('stat-miles-lbl').textContent=milesAreRoad()?'Miles':'Est. Miles';
   document.getElementById('stat-pts-today').textContent=todayPts.toFixed(2);
+  // This stat follows the SELECTED day, which isn't always today
+  document.getElementById('stat-pts-today-lbl').textContent=listSelectedDate===todayStr()?'Today pts':'Day pts';
   document.getElementById('stat-pts-week').textContent=weekPts.toFixed(2);
   document.getElementById('stat-pts-remain').textContent=weekPts>=weeklyTarget?'🎉 Done!':remain.toFixed(2);
   const fill=document.getElementById('weekly-bar-fill');
@@ -2296,20 +2640,20 @@ function renderPoints(){
       if(it.kind==='visit'){
         const v=it.data;
         const dot=v.status==='done'?'#0E7C66':v.status==='skipped'?'#9AA4B0':'#A85A0E';
-        return `<div class="day-visit-row">
+        return `<div class="day-visit-row tap" onclick="openEditPanel(${v.id})" title="Tap to edit">
           <div class="dv-status-dot" style="background:${dot}"></div>
           <div class="dv-name">${escAttr(v.name)}</div>
-          <div class="dv-chips"><span class="dv-chip dv-cat">${CAT_LABELS[v.cat]||v.cat}</span><span class="dv-chip dv-pts">⭐ ${getPoints(v)}</span></div>
+          <div class="dv-chips"><span class="dv-chip dv-cat">${escAttr(CAT_LABELS[v.cat]||v.cat)}</span><span class="dv-chip dv-pts">⭐ ${getPoints(v)}</span></div>
         </div>`;
       } else {
         const e=it.data;
         return `<div class="day-visit-row"><span class="dv-extra-icon">⭐</span><div class="dv-name">${escAttr(e.label)}</div><div class="dv-chips"><span class="dv-chip dv-pts">⭐ ${e.pts}</span></div></div>`;
       }
     }).join('');
-    return `<div class="day-card"><div class="day-card-header"><h3>${getDayLabel(ds)}</h3><span class="day-pts-pill">⭐ ${dp.toFixed(2)} pts</span></div><div>${rows}</div></div>`;
+    return `<div class="day-card"><div class="day-card-header tap" onclick="selectDateAndGoToList('${ds}')" title="Open this day in Visits"><h3>${getDayLabel(ds)}</h3><span class="day-pts-pill">⭐ ${dp.toFixed(2)} pts</span></div><div>${rows}</div></div>`;
   }).join('');
 
-  const refRows=Object.keys(catPoints).map(k=>`<div class="pts-ref-row"><span class="pts-ref-name">${CAT_FULL[k]}</span><span class="pts-ref-val">⭐ ${(catPoints[k]||0).toFixed(2)}</span></div>`).join('');
+  const refRows=Object.keys(catPoints).map(k=>`<div class="pts-ref-row"><span class="pts-ref-name">${escAttr(CAT_FULL[k]||k)}</span><span class="pts-ref-val">⭐ ${(catPoints[k]||0).toFixed(2)}</span></div>`).join('');
   const extraListHtml=weekExtra.length?weekExtra.map(e=>`
     <div class="extra-pts-row">
       <div class="extra-pts-info"><div class="extra-pts-label">${escAttr(e.label)}</div><div class="extra-pts-date">${getDayLabel(e.date)}</div></div>
@@ -2331,7 +2675,7 @@ function renderPoints(){
 
 // ─── RENDER SUMMARY ───────────────────────────────────────────────────────────
 function renderSummary(){
-  const sorted=getSorted();
+  const sorted=routeVisits(listSelectedDate);
   const mi=calcTotalMiles();
   const done=visits.filter(v=>v.date===listSelectedDate&&v.status==='done').length;
   const pend=visits.filter(v=>v.date===listSelectedDate&&v.status==='pending').length;
@@ -2339,10 +2683,10 @@ function renderSummary(){
   const todayPts=calcDayPoints(listSelectedDate);
   const weekPts=calcWeekPoints(0);
   const breakdown=sorted.map((v,i)=>{
-    const prev=i>0&&sorted[i-1].coords&&v.coords;
-    const dist=prev?haversine(sorted[i-1].coords,v.coords).toFixed(1):'-';
-    return `<div class="summary-row">
-      <span class="s-label"><span class="visit-cat-chip">${CAT_LABELS[v.cat]||v.cat}</span><span class="visit-type-chip">${TYPE_LABELS[v.type]||v.type}</span>${escAttr(v.name)}</span>
+    const li=legInfoFor(v);
+    const dist=li?li.miles.toFixed(1):'-';
+    return `<div class="summary-row tap" onclick="openEditPanel(${v.id})" title="Tap to edit">
+      <span class="s-label"><span class="visit-cat-chip">${escAttr(CAT_LABELS[v.cat]||v.cat)}</span><span class="visit-type-chip">${escAttr(TYPE_LABELS[v.type]||v.type)}</span>${escAttr(v.name)}</span>
       <span class="s-val" style="display:flex;gap:6px;align-items:center">${dist!=='-'?dist+' mi':'—'}<span style="background:var(--purple-bg);color:var(--purple);font-size:10px;font-weight:700;padding:2px 6px;border-radius:20px">⭐${getPoints(v)}</span></span>
     </div>`;
   }).join('');
@@ -2350,7 +2694,7 @@ function renderSummary(){
   document.getElementById('summary-content').innerHTML=`
     <div class="summary-card"><h3>📅 ${tf}</h3>
       <div class="mileage-big">${mi.toFixed(1)} mi</div>
-      <div class="mileage-sub">Estimated total mileage (round trip)</div>
+      <div class="mileage-sub">${milesAreRoad()?'Driving mileage (round trip, road distance)':'Estimated total mileage (round trip, straight-line)'}</div>
       <div class="summary-row"><span class="s-label">This day's points</span><span class="s-val" style="color:var(--purple)">⭐ ${todayPts.toFixed(2)}</span></div>
       <div class="summary-row"><span class="s-label">Week points</span><span class="s-val" style="color:var(--purple)">⭐ ${weekPts.toFixed(2)} / ${weeklyTarget}</span></div>
       <div class="summary-row"><span class="s-label">Patients this day</span><span class="s-val">${sorted.length}</span></div>
@@ -2364,15 +2708,15 @@ function renderSummary(){
 
 // ─── EXPORT ───────────────────────────────────────────────────────────────────
 function exportSummary(){
-  const sorted=getSorted();const mi=calcTotalMiles();const d=new Date(listSelectedDate+'T12:00:00');
+  const sorted=routeVisits(listSelectedDate);const mi=calcTotalMiles();const d=new Date(listSelectedDate+'T12:00:00');
   const todayPts=calcDayPoints(listSelectedDate);
   const weekPts=calcWeekPoints(0);
   let txt=`ROUNDLY — DAILY ROUTE SUMMARY\n${d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}\n`;
-  txt+=`Starting from: ${homeCoords.label}\nMileage: ${mi.toFixed(1)} mi\n`;
+  txt+=`Starting from: ${homeCoords.label}\nMileage: ${mi.toFixed(1)} mi (${milesAreRoad()?'road distance':'straight-line estimate'})\n`;
   txt+=`This day: ${todayPts.toFixed(2)} pts | Week: ${weekPts.toFixed(2)} / ${weeklyTarget} pts\n\nVISITS:\n${'─'.repeat(50)}\n`;
   sorted.forEach((v,i)=>{
-    const prev=i>0&&sorted[i-1].coords&&v.coords;
-    const dist=prev?haversine(sorted[i-1].coords,v.coords).toFixed(1)+' mi':'';
+    const li=legInfoFor(v);
+    const dist=li&&!li.fromBase?li.miles.toFixed(1)+' mi':'';
     txt+=`\n${visitNumber(v)}. ${v.name}  [${v.status.toUpperCase()}]\n   ${v.addr}\n   ${v.time} | ${v.dur} min | ${TYPE_LABELS[v.type]||v.type}\n   ${CAT_FULL[v.cat]||v.cat} | ${getPoints(v)} pts\n`;
     if(dist)txt+=`   Drive from prev: ${dist}\n`;
     if(v.notes)txt+=`   Notes: ${v.notes}\n`;
@@ -2410,6 +2754,17 @@ function closeAllPanels(){
   document.getElementById('name-dropdown').classList.remove('open');
 }
 
+// ─── SHARE LINK ───────────────────────────────────────────────────────────────
+async function copyAppLink(){
+  const url='https://roundly-app.netlify.app';
+  try{
+    await navigator.clipboard.writeText(url);
+    showToast('🔗 Link copied — paste it into a text or email');
+  }catch(e){
+    showToast('Copy not available — long-press the link to select it');
+  }
+}
+
 // ─── TOAST ────────────────────────────────────────────────────────────────────
 function showToast(msg){
   const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
@@ -2423,6 +2778,10 @@ function renderAll(){
   if(currentView==='summary')renderSummary();
   if(currentView==='points')renderPoints();
   if(currentView==='calendar')renderCalendar();
+  // Kick off (or reuse) the road-route fetch for the selected day; when it
+  // lands it re-renders the mileage displays itself. Guarded internally, so
+  // this does not loop.
+  refreshRoadRoute();
 }
 
 window.addEventListener('resize',()=>{

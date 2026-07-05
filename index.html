@@ -382,10 +382,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 .cwd-num{font-size:16px;font-weight:700;color:var(--text);margin:2px 0}
 .cwd-pts{font-size:9px;color:var(--purple);font-weight:700}
 
-.cal-day-detail{flex:1;overflow-y:auto;padding:10px 12px}
-.cal-day-detail-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-.cal-day-detail-header h3{font-size:14px;font-weight:700;color:var(--accent)}
-.cal-add-day-btn{font-size:12px;padding:6px 12px;border-radius:20px;border:none;background:var(--accent);color:white;cursor:pointer;font-weight:600}
+.cal-hint{text-align:center;font-size:12px;color:var(--text-muted);padding:14px 12px 8px}
 
 /* ===== POINTS VIEW ===== */
 .week-nav{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--gray-50);flex-shrink:0}
@@ -600,27 +597,20 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
       </div>
       <button class="date-strip-today" onclick="calGoToday()">Today</button>
     </div>
-    <div id="cal-month-view">
-      <div class="cal-grid-wrap">
-        <div class="cal-weekday-row">
-          <div class="cal-weekday">S</div><div class="cal-weekday">M</div><div class="cal-weekday">T</div>
-          <div class="cal-weekday">W</div><div class="cal-weekday">T</div><div class="cal-weekday">F</div><div class="cal-weekday">S</div>
-        </div>
-        <div class="cal-grid" id="cal-grid"></div>
-      </div>
-    </div>
-    <div id="cal-week-view" style="display:none">
-      <div class="cal-week-strip" id="cal-week-strip"></div>
-    </div>
-    <div class="cal-day-detail scroll-area">
-      <div class="cal-day-detail-header">
-        <h3 id="cal-detail-date" class="tap" onclick="selectDateAndGoToList(selectedCalDate)" title="Open this day in Visits">—</h3>
-        <div style="display:flex;gap:6px">
-          <button class="date-strip-today" onclick="selectDateAndGoToList(selectedCalDate)">📋 Open</button>
-          <button class="cal-add-day-btn" onclick="openAddPanelForDate(selectedCalDate)">+ Add Visit</button>
+    <div class="scroll-area" id="cal-scroll">
+      <div id="cal-month-view">
+        <div class="cal-grid-wrap">
+          <div class="cal-weekday-row">
+            <div class="cal-weekday">S</div><div class="cal-weekday">M</div><div class="cal-weekday">T</div>
+            <div class="cal-weekday">W</div><div class="cal-weekday">T</div><div class="cal-weekday">F</div><div class="cal-weekday">S</div>
+          </div>
+          <div class="cal-grid" id="cal-grid"></div>
         </div>
       </div>
-      <div id="cal-day-detail-list"></div>
+      <div id="cal-week-view" style="display:none">
+        <div class="cal-week-strip" id="cal-week-strip"></div>
+      </div>
+      <div class="cal-hint">Tap any day to open it in Visits.</div>
     </div>
   </div>
 
@@ -1793,6 +1783,7 @@ async function photonSearch(q){
       lon: coords[0],
       display_name: parts.join(', '),
       hasHouseNumber: !!p.housenumber,
+      houseNumber: p.housenumber || null,
       isStreet: p.osm_key === 'highway'
     };
   }).filter(r => r.lat != null && r.lon != null);
@@ -1832,20 +1823,97 @@ async function geocodeSearch(q){
   const ex=expandAbbrevs(q);
   addVariant(ex);
   addVariant(guessCommaPlacement(ex));
-  // A variant can return junk fuzzy matches (raw "…Blvd…" once matched a bus
-  // stop on a different road) — keep walking the ladder until some result
-  // actually mentions the street the user typed; fall back to the first
-  // non-empty set if none ever does.
+
   const streetWord=queryStreetWord(q);
-  const plausible=rs=>!streetWord||rs.some(r=>r.display_name.toLowerCase().includes(streetWord));
-  let firstNonEmpty=[];
+  const qType=streetTypeOf(q);
+  const userNum=(q.match(/^\s*(\d+[a-zA-Z]?)\b/)||[])[1]||null;
+  const nameOk=r=>!streetWord||r.display_name.toLowerCase().includes(streetWord);
+  // A result's street TYPE must not CONFLICT with what the user typed —
+  // "Selwyn Ave" must not resolve to "Selwyn Landing Drive" just because both
+  // contain "Selwyn". Unknown/absent type on the result is allowed.
+  const typeOk=r=>{ if(!qType) return true; const t=streetTypeOf(r.display_name); return !t||t===qType; };
+  const numOk=r=>!userNum||!r.houseNumber||String(r.houseNumber).toLowerCase()===userNum.toLowerCase();
+  const good=r=>nameOk(r)&&typeOk(r);
+
+  let photonBest=[];
   for(const v of variants){
     const rs=await photonSearch(v);
-    if(!rs.length) continue;
-    if(!firstNonEmpty.length) firstNonEmpty=rs;
-    if(plausible(rs)) return applyUserHouseNumber(q,rankResults(rs,streetWord));
+    if(rs.length && !photonBest.length) photonBest=rs;
+    // Best possible: Photon has the user's EXACT house number on the right
+    // street (not a different building on it). Use it and skip Census.
+    if(rs.some(r=>r.hasHouseNumber&&numOk(r)&&good(r)))
+      return applyUserHouseNumber(q,rankResults(rs,streetWord,qType));
   }
-  return applyUserHouseNumber(q,rankResults(firstNonEmpty,streetWord));
+  // House-numbered US address Photon couldn't pin exactly. The US Census
+  // geocoder (TIGER address ranges) is authoritative for US house numbers and
+  // covers both "not in OpenStreetMap at all" (e.g. 659 Boyer Rd, Venetia PA)
+  // and "OSM only has the street, not the number" (Selwyn Ave → exact point).
+  // It has no CORS, so censusGeocode() reaches it via JSONP.
+  if(hasHouseNumberQuery(q)){
+    const census=await censusGeocode(q);
+    if(census.length) return census;
+  }
+  // Otherwise the best Photon set (street/POI match, typed house number kept).
+  return applyUserHouseNumber(q,rankResults(photonBest,streetWord,qType));
+}
+function hasHouseNumberQuery(q){ return /^\s*\d+[a-zA-Z]?\s+\S/.test(q); }
+
+// Canonical street-type detection, used to reject same-name / wrong-type
+// mismatches. "st" is intentionally excluded — too ambiguous with "Saint".
+const STREET_TYPE_FORMS={
+  parkway:['parkway','pkwy'], boulevard:['boulevard','blvd'], avenue:['avenue','ave','av'],
+  road:['road','rd'], drive:['drive','dr'], lane:['lane','ln'], court:['court','ct'],
+  circle:['circle','cir'], highway:['highway','hwy'], place:['place','pl'],
+  terrace:['terrace','ter'], trail:['trail','trl'], crossing:['crossing','xing'],
+  square:['square','sq'], street:['street'], way:['way']
+};
+function streetTypeOf(s){
+  const wset=new Set(String(s).toLowerCase().split(/[^a-z]+/).filter(Boolean));
+  for(const canon in STREET_TYPE_FORMS){
+    if(STREET_TYPE_FORMS[canon].some(f=>wset.has(f))) return canon;
+  }
+  return null;
+}
+
+// ─── GEOCODING FALLBACK: US Census (TIGER) via JSONP ──────────────────────────
+// The Census geocoder does NOT send CORS headers, so a normal fetch() is
+// blocked in the browser — but it supports JSONP, which loads through a
+// <script> tag and sidesteps CORS entirely. US-only; house-number accurate.
+let _censusN=0;
+function censusGeocode(q){
+  return new Promise(resolve=>{
+    const cb='__roundlyCensus'+(++_censusN);
+    const s=document.createElement('script');
+    let done=false;
+    const finish=(val)=>{
+      if(done) return; done=true;
+      clearTimeout(timer);
+      try{ delete window[cb]; }catch(e){ window[cb]=undefined; }
+      s.remove();
+      resolve(val);
+    };
+    window[cb]=(data)=>{
+      const matches=(data && data.result && data.result.addressMatches)||[];
+      finish(matches.filter(m=>m.coordinates).map(m=>({
+        lat:m.coordinates.y, lon:m.coordinates.x,
+        display_name:prettyCaseAddr(m.matchedAddress||''),
+        hasHouseNumber:true, isStreet:false
+      })));
+    };
+    const timer=setTimeout(()=>finish([]),7000);
+    s.onerror=()=>finish([]);
+    s.src='https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address='
+      +encodeURIComponent(q)+'&benchmark=Public_AR_Current&format=jsonp&callback='+cb;
+    document.head.appendChild(s);
+  });
+}
+// Census returns ALL-CAPS addresses ("659 BOYER RD, VENETIA, PA, 15367").
+// Title-case the words but leave 2-letter state codes and numbers alone.
+function prettyCaseAddr(s){
+  return s.replace(/[A-Za-z]+/g,w=>{
+    if(w.length===2 && w===w.toUpperCase()) return w; // state code (PA, NC…)
+    return w.charAt(0).toUpperCase()+w.slice(1).toLowerCase();
+  });
 }
 // First distinctive word of the street name (after any house number) — used
 // to sanity-check and rank geocoder results against what the user typed.
@@ -1856,13 +1924,16 @@ function queryStreetWord(q){
   const words=m[1].split(/[\s,]+/).filter(Boolean);
   return (words.find(w=>w.length>=3)||words[0]||'').toLowerCase();
 }
-function rankResults(rs,streetWord){
-  return rs.slice().sort((a,b)=>{
-    const am=streetWord&&a.display_name.toLowerCase().includes(streetWord)?1:0;
-    const bm=streetWord&&b.display_name.toLowerCase().includes(streetWord)?1:0;
-    if(am!==bm) return bm-am;
-    return (b.hasHouseNumber?1:0)-(a.hasHouseNumber?1:0);
-  });
+function rankResults(rs,streetWord,qType){
+  const score=r=>{
+    let s=0;
+    const dn=r.display_name.toLowerCase();
+    if(streetWord && dn.includes(streetWord)) s+=2;
+    if(qType){ const t=streetTypeOf(dn); if(t===qType) s+=2; else if(t) s-=2; }
+    if(r.hasHouseNumber) s+=1;
+    return s;
+  };
+  return rs.slice().sort((a,b)=>score(b)-score(a));
 }
 // Many US house numbers simply aren't in OpenStreetMap, so a legit full
 // address often only matches its STREET. Don't throw the user's house number
@@ -1875,9 +1946,20 @@ function applyUserHouseNumber(q,results){
   const num=m[1];
   const streetWord=queryStreetWord(q);
   return results.map(r=>{
-    if(r.hasHouseNumber||!r.isStreet) return r;
+    // Exact same house number → trust the geocoder's address as-is.
+    if(r.houseNumber && String(r.houseNumber).toLowerCase()===num.toLowerCase()) return r;
+    // Only adjust results that are clearly on the street the user typed.
     if(streetWord && !r.display_name.toLowerCase().includes(streetWord)) return r;
-    return {...r, display_name:num+' '+r.display_name, approx:true};
+    if(r.houseNumber){
+      // A DIFFERENT building on the right street — keep the user's number
+      // (their typed address is the source of truth), pin approximately here.
+      return {...r, display_name:r.display_name.replace(/^\s*\S+/, num), approx:true};
+    }
+    if(r.isStreet){
+      // Street-only match — prepend the user's number, pin to the street.
+      return {...r, display_name:num+' '+r.display_name, approx:true};
+    }
+    return r;
   });
 }
 
@@ -2303,17 +2385,11 @@ function calNav(dir){
   renderCalendar();
 }
 function calGoToday(){calRefDate=new Date();selectedCalDate=todayStr();renderCalendar();}
-function selectCalDate(ds){selectedCalDate=ds;renderCalendar();}
-function openAddPanelForDate(ds){
-  openAddPanel();
-  document.getElementById('f-date').value=ds;
-}
 
 function renderCalendar(){
   document.getElementById('cal-month-label').textContent=calRefDate.toLocaleDateString('en-US',{month:'long',year:'numeric'});
   if(calMode==='month') renderCalMonthGrid();
   else renderCalWeekStrip();
-  renderCalDayDetail();
 }
 
 function renderCalMonthGrid(){
@@ -2346,14 +2422,10 @@ function renderCalMonthGrid(){
     </div>`;
   }
   grid.innerHTML=html;
-  // First tap selects the day (its detail shows below); tapping the
-  // already-selected day jumps to it in the Visits tab.
+  // Tap a day → open it in the Visits tab (single tap; the full visit list
+  // there is where you actually work with the day).
   grid.querySelectorAll('.cal-day').forEach(el=>{
-    el.addEventListener('click',()=>{
-      const ds=el.getAttribute('data-date');
-      if(ds===selectedCalDate) selectDateAndGoToList(ds);
-      else selectCalDate(ds);
-    });
+    el.addEventListener('click',()=>selectDateAndGoToList(el.getAttribute('data-date')));
   });
 }
 
@@ -2378,61 +2450,12 @@ function renderCalWeekStrip(){
     </div>`;
   }
   strip.innerHTML=html;
-  // Same two-tap behavior as the month grid: select first, jump on second tap
+  // Single tap → open that day in the Visits tab
   strip.querySelectorAll('.cal-week-day').forEach(el=>{
-    el.addEventListener('click',()=>{
-      const ds=el.getAttribute('data-date');
-      if(ds===selectedCalDate) selectDateAndGoToList(ds);
-      else selectCalDate(ds);
-    });
+    el.addEventListener('click',()=>selectDateAndGoToList(el.getAttribute('data-date')));
   });
 }
 
-function renderCalDayDetail(){
-  const ds=selectedCalDate;
-  const d=new Date(ds+'T12:00:00');
-  document.getElementById('cal-detail-date').textContent=d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
-  const dayVisits=visits.filter(v=>v.date===ds).sort((a,b)=>a.time.localeCompare(b.time));
-  const dayExtras=extraPoints.filter(e=>e.date===ds);
-  const list=document.getElementById('cal-day-detail-list');
-  if(!dayVisits.length&&!dayExtras.length){
-    list.innerHTML=`<div class="empty-state" style="padding:24px"><div class="empty-icon" style="font-size:32px">📭</div><p>Nothing scheduled this day.</p></div>`;
-    return;
-  }
-  let html='';
-  dayVisits.forEach(v=>{
-    const pts=getPoints(v);
-    const statusColor=v.status==='done'?'#0E7C66':v.status==='skipped'?'#9AA4B0':'#A85A0E';
-    html+=`<div class="visit-card status-${v.status}" style="margin-bottom:8px">
-      <div class="card-top" onclick="openEditPanel(${v.id})" title="Tap to edit">
-        <div class="visit-num-bubble">${visitNumber(v)}</div>
-        <div class="card-info">
-          <div class="card-name">${escAttr(v.name)}</div>
-          <div class="card-addr" onclick="event.stopPropagation();navTo(${v.id})" title="Tap to navigate">📍 ${escAttr(v.addr)}</div>
-          <div class="card-tags">
-            <span class="tag tag-time">⏰ ${v.time}</span>
-            <span class="tag tag-type">${escAttr(TYPE_LABELS[v.type]||v.type)}</span>
-            <span class="tag tag-visit">${escAttr(CAT_LABELS[v.cat]||v.cat)}</span>
-          </div>
-        </div>
-        <div class="card-pts-badge"><div class="pts-circle"><span class="pts-num">${pts}</span><span class="pts-word">pts</span></div></div>
-      </div>
-      <div class="card-actions">
-        <button class="card-action-btn" onclick="selectDateAndGoToList('${ds}')" style="color:var(--accent-mid)"><span class="act-icon">📋</span>Open in Visits</button>
-        <button class="card-action-btn" onclick="openEditPanel(${v.id})"><span class="act-icon">✏️</span>Edit</button>
-      </div>
-    </div>`;
-  });
-  dayExtras.forEach(e=>{
-    html+=`<div class="extra-pts-row" style="background:var(--white);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:8px">
-      <span class="dv-extra-icon">⭐</span>
-      <div class="extra-pts-info"><div class="extra-pts-label">${escAttr(e.label)}</div></div>
-      <span class="extra-pts-val">⭐ ${e.pts.toFixed(2)}</span>
-      <button class="extra-pts-del" onclick="deleteExtraPoint(${e.id})">✕</button>
-    </div>`;
-  });
-  list.innerHTML=html;
-}
 function selectDateAndGoToList(ds){
   listSelectedDate=ds;
   mapNeedsFit=true;

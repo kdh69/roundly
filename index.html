@@ -215,6 +215,19 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
 .empty-state{padding:48px 24px;text-align:center;color:var(--text-muted)}
 .empty-icon{font-size:48px;margin-bottom:12px}
 .empty-state p{font-size:14px;line-height:1.5}
+/* Next-stop hero — the big "where am I going now" card at the top of today */
+.next-stop-hero{background:var(--accent-grad);color:#fff;border-radius:var(--radius-lg);padding:16px 18px;box-shadow:var(--shadow-md)}
+.nsh-label{font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;opacity:0.9}
+.nsh-name{font-size:22px;font-weight:800;margin-top:2px;line-height:1.15}
+.nsh-addr{font-size:13px;opacity:0.95;margin-top:3px;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.nsh-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.nsh-chip{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;background:rgba(255,255,255,0.22);color:#fff;white-space:nowrap}
+.nsh-actions{display:flex;gap:10px;margin-top:14px}
+.nsh-btn{flex:1;min-height:52px;border:none;border-radius:var(--radius-md);font-size:15px;font-weight:800;cursor:pointer}
+.nsh-btn:active{transform:scale(0.98)}
+.nsh-nav{background:#fff;color:var(--accent)}
+.nsh-done{background:rgba(255,255,255,0.18);color:#fff;box-shadow:inset 0 0 0 2px rgba(255,255,255,0.6)}
+.route-complete{background:var(--green-bg);color:var(--green);border-radius:var(--radius-lg);padding:14px 16px;font-size:14px;font-weight:800;text-align:center;box-shadow:var(--shadow-sm)}
 .visit-card{background:var(--white);border:none;border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-sm);transition:transform 0.1s}
 .visit-card:active{transform:scale(0.995)}
 .visit-card.status-done{border-left:4px solid var(--teal)}
@@ -2756,7 +2769,36 @@ function renderList(){
     const li=legInfoFor(v);
     return li ? li.miles.toFixed(1)+' mi'+(li.fromBase?' from base':'') : '';
   };
-  c.innerHTML=sorted.map((v,i)=>{
+  // NEXT-STOP HERO — only on today's list. The next stop is the first PENDING
+  // visit in DRIVING order (routeVisits), not the display sort. Big Navigate +
+  // Mark-done reuse the existing data-action delegation. The visit still shows
+  // in the list below (this is a highlight, not a replacement).
+  let heroHtml='';
+  if(listSelectedDate===todayStr()){
+    const route=routeVisits(todayStr());
+    const next=route.find(v=>v.status==='pending');
+    if(next){
+      const nd=legOf(next);
+      const chips=[next.time, next.dur+'m', escAttr(CAT_LABELS[next.cat]||next.cat)]
+        .concat(nd?[nd]:[])
+        .concat(isPPV()?[fmtMoney(getPay(next))]:[])
+        .map(t=>`<span class="nsh-chip">${t}</span>`).join('');
+      heroHtml=`<div class="next-stop-hero">
+        <div class="nsh-label">Next stop · #${visitNumber(next)}</div>
+        <div class="nsh-name">${escAttr(next.name)}</div>
+        <div class="nsh-addr" data-action="nav" data-id="${next.id}" title="Tap to navigate">${escAttr(next.addr)}</div>
+        <div class="nsh-tags">${chips}</div>
+        <div class="nsh-actions">
+          <button class="nsh-btn nsh-nav" data-action="nav" data-id="${next.id}">Navigate</button>
+          <button class="nsh-btn nsh-done" data-action="done" data-id="${next.id}">Mark done</button>
+        </div>
+      </div>`;
+    } else if(route.length){
+      const done=route.filter(v=>v.status==='done').length;
+      heroHtml=`<div class="route-complete">✓ Route done — ${done}/${route.length} visits · ${calcDayPoints(todayStr()).toFixed(2)} pts${isPPV()?' · '+fmtMoney(calcDayPay(todayStr())):''} today</div>`;
+    }
+  }
+  c.innerHTML=heroHtml+sorted.map((v,i)=>{
     const dist=legOf(v);
     const pts=getPoints(v);
     return `<div class="visit-card status-${v.status}">

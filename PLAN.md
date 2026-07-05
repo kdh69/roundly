@@ -127,6 +127,8 @@ In **`exportSummary()`** (~line 2764): after building `txt`, if `navigator.share
 
 In **`renderList()`** (~line 2571):
 
+**Status:** [x] shipped — `.next-stop-hero` prepended in `renderList` on today only; next = first pending in `routeVisits(todayStr())`; big Navigate + Mark-done reuse `data-action` delegation; `.route-complete` strip (done/total · pts · pay) when nothing pending; the visit still appears in the list below. Accent-gradient card, 52px buttons, translucent chips.
+
 - Condition: `listSelectedDate === todayStr()` AND there is at least one `pending` visit today.
 - Next stop = first visit with `status==='pending'` in **`routeVisits(todayStr())`** order (driving order — NOT `getSorted()` display order).
 - Prepend a hero card above the normal list: patient name (large), address, time chip, leg distance via `legInfoFor(v)`, and two large buttons — **🧭 Navigate** (primary, `data-action="nav"`) and **✅ Done** (`data-action="done"`). Reuse the existing `data-action`/`data-id` delegation (`handleListClick`) — no new handlers.

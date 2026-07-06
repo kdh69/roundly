@@ -212,7 +212,7 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
 .scroll-area{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 
 /* ===== VISIT CARDS ===== */
-.visit-list{padding:8px 12px;display:flex;flex-direction:column;gap:10px}
+.visit-list{padding:8px 12px calc(88px + var(--safe-bottom));display:flex;flex-direction:column;gap:10px}
 .empty-state{padding:48px 24px;text-align:center;color:var(--text-muted)}
 .empty-icon{font-size:48px;margin-bottom:12px}
 .empty-state p{font-size:14px;line-height:1.5}
@@ -386,8 +386,11 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
 .fab:active{transform:scale(0.93)}
 .fab-extra{position:fixed;bottom:calc(64px + var(--safe-bottom));left:16px;width:52px;height:52px;border-radius:50%;background:var(--purple);color:white;border:none;font-size:22px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.22),0 6px 18px rgba(0,0,0,0.26);display:flex;align-items:center;justify-content:center;z-index:100;transition:transform 0.1s}
 .fab-extra:active{transform:scale(0.93)}
-.fab-quick{position:fixed;bottom:calc(128px + var(--safe-bottom));right:16px;width:52px;height:52px;border-radius:50%;background:var(--white);color:var(--accent);border:none;font-size:24px;cursor:pointer;box-shadow:var(--shadow-md);display:flex;align-items:center;justify-content:center;z-index:100;transition:transform 0.1s}
+.fab-quick{position:fixed;bottom:calc(64px + var(--safe-bottom));right:80px;width:52px;height:52px;border-radius:50%;background:var(--white);color:var(--accent);border:none;font-size:24px;cursor:pointer;box-shadow:var(--shadow-md);display:flex;align-items:center;justify-content:center;z-index:100;transition:transform 0.1s}
 .fab-quick:active{transform:scale(0.93)}
+/* The add-related FABs belong to the Visits list only — hide them elsewhere so
+   they don't float over the calendar/points/summary/map content. */
+body.hide-fabs .fab,body.hide-fabs .fab-quick,body.hide-fabs .fab-extra{display:none}
 /* Quick-add mode: hide the optional fields, show the expander to full add */
 #add-panel.quick .qopt{display:none!important}
 .quick-expand-link{display:none;width:100%;padding:10px;border:none;background:none;color:var(--accent-mid);font-size:13px;font-weight:700;cursor:pointer;margin-bottom:2px}
@@ -600,7 +603,7 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
 @media(min-width:481px){
   #app{box-shadow:0 0 60px rgba(93,64,42,0.12)}
   .fab{right:calc(50% - 226px)}
-  .fab-quick{right:calc(50% - 226px)}
+  .fab-quick{right:calc(50% - 162px)}
   .fab-extra{left:calc(50% - 226px)}
 }
 </style>
@@ -2816,6 +2819,8 @@ function switchView(view){
     document.getElementById('view-'+v).classList.toggle('visible',v===view);
     document.getElementById('nav-'+v).classList.toggle('active',v===view);
   });
+  // Add/quick/extra FABs are Visits-only, so they don't cover other tabs.
+  document.body.classList.toggle('hide-fabs', view!=='list');
   if(view==='map'){mapNeedsFit=true;setTimeout(initOrRefreshMap,80);}
   if(view==='summary')renderSummary();
   if(view==='points')renderPoints();

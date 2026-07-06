@@ -551,7 +551,7 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
 .toast{position:fixed;top:calc(16px + var(--safe-top));left:50%;transform:translateX(-50%) translateY(-80px);background:var(--gray-800);color:var(--white);padding:10px 18px;border-radius:var(--radius-md);font-size:13px;font-weight:500;z-index:600;transition:transform 0.25s ease;text-align:center;max-width:90vw}
 .toast.show{transform:translateX(-50%) translateY(0)}
 [data-theme="dark"] .toast{background:#3A4250;color:#fff}
-.qt-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:700;display:flex;align-items:flex-end;justify-content:center;animation:qtfade 0.15s ease}
+.qt-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:900;display:flex;align-items:flex-end;justify-content:center;animation:qtfade 0.15s ease}
 @keyframes qtfade{from{opacity:0}to{opacity:1}}
 .qt-sheet{background:var(--white);width:100%;max-width:480px;border-radius:var(--radius-xl) var(--radius-xl) 0 0;padding:8px 12px calc(14px + var(--safe-bottom));box-shadow:var(--shadow-lg)}
 .qt-head{text-align:center;padding:12px 8px 6px}
@@ -562,6 +562,40 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
 .qt-call{background:var(--teal-bg);color:var(--teal)}
 .qt-cancel{background:transparent;color:var(--text-muted);font-weight:600}
 .nsh-text{flex:0 0 auto;padding:0 16px;background:rgba(255,255,255,0.18);color:#fff;box-shadow:inset 0 0 0 2px rgba(255,255,255,0.6)}
+/* ===== DRIVE MODE ===== */
+.sort-btn-drive{font-size:11px;padding:6px 11px;border-radius:20px;border:none;background:var(--accent-grad);color:#fff;cursor:pointer;white-space:nowrap;font-weight:800;box-shadow:var(--shadow-sm)}
+.drive-mode{position:fixed;inset:0;z-index:800;background:var(--accent-grad);color:#fff;display:none;flex-direction:column;padding:calc(10px + var(--safe-top)) 16px calc(16px + var(--safe-bottom))}
+.drive-mode.open{display:flex}
+.dm-top{display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.dm-title{font-size:16px;font-weight:800;letter-spacing:0.3px}
+.dm-close{background:rgba(255,255,255,0.18);border:none;color:#fff;width:38px;height:38px;border-radius:50%;font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.dm-progress{margin:14px 0 4px;flex-shrink:0}
+.dm-progress-lbl{font-size:13px;font-weight:700;opacity:0.92;text-align:center;margin-bottom:8px}
+.dm-segs{display:flex;gap:5px}
+.dm-seg{flex:1;height:5px;border-radius:3px;background:rgba(255,255,255,0.28)}
+.dm-seg.done{background:#fff}
+.dm-seg.current{background:#fff;box-shadow:0 0 0 2px rgba(255,255,255,0.45)}
+.dm-body{flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0;overflow-y:auto;padding:6px 0}
+.dm-card{background:var(--white);color:var(--text);border-radius:var(--radius-xl);padding:20px 18px;box-shadow:var(--shadow-lg)}
+.dm-stopnum{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted)}
+.dm-statuspill{font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px;white-space:nowrap}
+.dm-name{font-size:26px;font-weight:800;line-height:1.15;margin:8px 0 5px}
+.dm-addr{font-size:14px;color:var(--accent);text-decoration:underline;text-underline-offset:2px;cursor:pointer;word-break:break-word}
+.dm-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.dm-chip{font-size:12px;font-weight:700;padding:4px 10px;border-radius:20px;background:var(--gray-100);color:var(--gray-800)}
+.dm-notes{margin-top:12px;font-size:13px;font-style:italic;color:var(--text-muted);background:var(--gray-50);border-radius:var(--radius-md);padding:10px 12px}
+.dm-actions{margin-top:16px;display:flex;flex-direction:column;gap:10px}
+.dm-nav-btn{width:100%;min-height:56px;border:none;border-radius:var(--radius-lg);background:var(--accent);color:#fff;font-size:17px;font-weight:800;cursor:pointer}
+.dm-row{display:flex;gap:10px}
+.dm-mini{flex:1;min-height:50px;border:none;border-radius:var(--radius-md);font-size:15px;font-weight:800;cursor:pointer;background:var(--gray-100);color:var(--text)}
+.dm-status-row{display:flex;gap:8px}
+.dm-status-row button{flex:1;min-height:48px;border:none;border-radius:var(--radius-md);font-size:14px;font-weight:800;cursor:pointer}
+.dm-confirm{background:var(--blue-bg);color:var(--blue)}
+.dm-done{background:var(--teal-bg);color:var(--teal)}
+.dm-skip{background:var(--gray-100);color:var(--gray-600)}
+.dm-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;flex-shrink:0}
+.dm-foot button{background:rgba(255,255,255,0.18);border:none;color:#fff;font-size:15px;font-weight:800;padding:13px 18px;border-radius:var(--radius-md);cursor:pointer;flex:1}
+.dm-foot button:disabled{opacity:0.32}
 
 @media(min-width:481px){
   #app{box-shadow:0 0 60px rgba(93,64,42,0.12)}
@@ -676,6 +710,7 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
       <button class="sort-btn" id="sort-status" onclick="setSort('status')">✓ Status</button>
       <button class="sort-btn num-dir-btn" onclick="toggleVisitNumDir()">🕐 Earliest first</button>
       <button class="sort-btn-opt" onclick="optimizeRoute()">⚡ Optimize</button>
+      <button class="sort-btn-drive" onclick="enterDriveMode()">🚗 Drive</button>
     </div>
     <div class="scroll-area">
       <div class="visit-list" id="visit-list-container"></div>
@@ -731,7 +766,8 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
       <button class="map-fit-btn" onclick="fitMapToRoute()" title="Fit route in view" aria-label="Fit route in view">⛶</button>
     </div>
     <div class="map-controls">
-      <button class="map-ctrl-btn primary" onclick="openFullRoute()">🗺️ Open in Maps</button>
+      <button class="map-ctrl-btn primary" onclick="enterDriveMode()">🚗 Drive Mode</button>
+      <button class="map-ctrl-btn" onclick="openFullRoute()">🗺️ Open in Maps</button>
       <button class="map-ctrl-btn success" onclick="optimizeRoute()">⚡ Optimize Route</button>
       <button class="map-ctrl-btn num-dir-btn" onclick="toggleVisitNumDir()">🕐 Earliest first</button>
     </div>
@@ -991,6 +1027,9 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
   </div>
 </div>
 
+<!-- DRIVE MODE (full-screen, one stop at a time) -->
+<div class="drive-mode" id="drive-mode" aria-hidden="true"></div>
+
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
@@ -1190,6 +1229,15 @@ async function onSignedIn(user){
 // ─── EVENT DELEGATION (fixes "all visits react to one click" bug) ────────────
 function setupEventDelegation(){
   document.getElementById('visit-list-container').addEventListener('click', handleListClick);
+  // Drive Mode: swipe left/right to move between stops.
+  const dmEl=document.getElementById('drive-mode');
+  let dmTouchX=null;
+  dmEl.addEventListener('touchstart',e=>{dmTouchX=e.changedTouches[0].clientX;},{passive:true});
+  dmEl.addEventListener('touchend',e=>{
+    if(dmTouchX===null) return;
+    const dx=e.changedTouches[0].clientX-dmTouchX; dmTouchX=null;
+    if(Math.abs(dx)>60) driveGo(dx<0?1:-1);
+  },{passive:true});
 }
 function handleListClick(e){
   const btn = e.target.closest('[data-action]');
@@ -2430,6 +2478,107 @@ function openQuickText(id){
     if(e.target.closest('a.qt-item')) setTimeout(closeQuickText,300); // let the tel:/sms: link fire first
   });
 }
+// ─── DRIVE MODE ───────────────────────────────────────────────────────────────
+// Full-screen, one-stop-at-a-time view for hands-free use on the road. Steps
+// through the day's driving order (routeVisits) with big Navigate / Text / Call
+// buttons and inline status controls; marking Done or Skip auto-advances.
+let driveIndex=0, driveDate=null;
+function driveIsOpen(){return document.getElementById('drive-mode').classList.contains('open');}
+function driveRoute(){return routeVisits(driveDate||listSelectedDate);}
+function driveCurrent(){return driveRoute()[driveIndex]||null;}
+function enterDriveMode(){
+  driveDate=listSelectedDate;
+  const route=driveRoute();
+  if(!route.length){showToast('No visits to drive for this day');return;}
+  const i=route.findIndex(v=>v.status==='pending'||v.status==='confirmed');
+  driveIndex=i>=0?i:0;
+  const dm=document.getElementById('drive-mode');
+  dm.classList.add('open');dm.setAttribute('aria-hidden','false');
+  document.body.style.overflow='hidden';
+  renderDriveMode();
+}
+function exitDriveMode(){
+  const dm=document.getElementById('drive-mode');
+  dm.classList.remove('open');dm.setAttribute('aria-hidden','true');
+  document.body.style.overflow='';
+}
+function driveGo(delta){
+  const len=driveRoute().length;
+  driveIndex=Math.max(0,Math.min(len-1,driveIndex+delta));
+  renderDriveMode();
+}
+function driveAdvance(){
+  const len=driveRoute().length;
+  if(driveIndex<len-1) driveIndex++;
+  renderDriveMode();
+}
+function driveAction(kind){
+  const v=driveCurrent(); if(!v) return;
+  if(kind==='nav') navTo(v.id);
+  else if(kind==='text') openQuickText(v.id);
+  else if(kind==='call'){const ph=(v.phone||'').replace(/[^\d+]/g,'');if(ph)window.location.href='tel:'+ph;}
+  else if(kind==='confirm') markConfirmed(v.id);
+  else if(kind==='done'){const wasDone=v.status==='done';markDone(v.id);if(!wasDone)driveAdvance();}
+  else if(kind==='skip'){const wasSkip=v.status==='skipped';markSkip(v.id);if(!wasSkip)driveAdvance();}
+}
+const DM_STATUS={pending:['Pending','var(--amber-bg)','var(--amber)'],confirmed:['✓ Confirmed','var(--blue-bg)','var(--blue)'],done:['✓ Done','var(--teal-bg)','var(--teal)'],skipped:['Skipped','var(--gray-100)','var(--gray-600)']};
+function renderDriveMode(){
+  const dm=document.getElementById('drive-mode');
+  if(!dm.classList.contains('open')) return;
+  const route=driveRoute();
+  if(!route.length){exitDriveMode();return;}
+  driveIndex=Math.max(0,Math.min(route.length-1,driveIndex));
+  const v=route[driveIndex], total=route.length;
+  const remaining=route.filter(x=>x.status==='pending'||x.status==='confirmed').length;
+  const segs=route.map((s,i)=>`<div class="dm-seg${s.status==='done'?' done':''}${i===driveIndex?' current':''}"></div>`).join('');
+  const li=legInfoFor(v);
+  const miles=li?li.miles.toFixed(1)+' mi':'';
+  const st=DM_STATUS[v.status]||DM_STATUS.pending;
+  const chips=[v.time, v.dur+'m', escAttr(CAT_LABELS[v.cat]||v.cat), escAttr(TYPE_LABELS[v.type]||v.type)];
+  if(miles) chips.push('🚗 '+miles);
+  if(isPPV()) chips.push(fmtMoney(getPay(v)));
+  const hasPhone=!!(v.phone&&v.phone.trim());
+  const progLbl=remaining===0
+    ? `🎉 All ${total} stop${total>1?'s':''} complete!`
+    : `${getDayLabel(driveDate)} · Stop ${driveIndex+1} of ${total}`;
+  dm.innerHTML=`
+    <div class="dm-top">
+      <div class="dm-title">🚗 Drive Mode</div>
+      <button class="dm-close" onclick="exitDriveMode()" aria-label="Exit drive mode">✕</button>
+    </div>
+    <div class="dm-progress">
+      <div class="dm-progress-lbl">${progLbl}</div>
+      <div class="dm-segs">${segs}</div>
+    </div>
+    <div class="dm-body">
+      <div class="dm-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+          <span class="dm-stopnum">Stop #${visitNumber(v)}</span>
+          <span class="dm-statuspill" style="background:${st[1]};color:${st[2]}">${st[0]}</span>
+        </div>
+        <div class="dm-name">${escAttr(v.name)}</div>
+        <div class="dm-addr" onclick="driveAction('nav')">${escAttr(v.addr)}</div>
+        <div class="dm-chips">${chips.map(c=>`<span class="dm-chip">${c}</span>`).join('')}</div>
+        ${v.notes?`<div class="dm-notes">💬 ${escAttr(v.notes)}</div>`:''}
+        <div class="dm-actions">
+          <button class="dm-nav-btn" onclick="driveAction('nav')">🧭 Navigate${miles?' · '+miles:''}</button>
+          ${hasPhone?`<div class="dm-row">
+            <button class="dm-mini" onclick="driveAction('text')">💬 Text</button>
+            <button class="dm-mini" onclick="driveAction('call')">📞 Call</button>
+          </div>`:''}
+          <div class="dm-status-row">
+            <button class="dm-confirm" onclick="driveAction('confirm')">${v.status==='confirmed'?'Unconfirm':'Confirm'}</button>
+            <button class="dm-done" onclick="driveAction('done')">${v.status==='done'?'Undo':'✓ Done'}</button>
+            <button class="dm-skip" onclick="driveAction('skip')">${v.status==='skipped'?'Unskip':'Skip'}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="dm-foot">
+      <button onclick="driveGo(-1)" ${driveIndex===0?'disabled':''}>‹ Prev</button>
+      <button onclick="driveGo(1)" ${driveIndex===total-1?'disabled':''}>Next ›</button>
+    </div>`;
+}
 async function deleteVisit(id){
   const v=visits.find(x=>x.id===id);
   if(!v) return false;
@@ -3237,6 +3386,7 @@ function showToast(msg){
 // ─── RENDER ALL ───────────────────────────────────────────────────────────────
 function renderAll(){
   renderList();renderStats();
+  if(driveIsOpen())renderDriveMode();
   if(currentView==='map')updateMapMarkers();
   if(currentView==='summary')renderSummary();
   if(currentView==='points')renderPoints();

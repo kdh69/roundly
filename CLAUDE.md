@@ -30,11 +30,13 @@
 ### Database tables (all RLS-enabled, schema in `supabase_schema.sql` / `supabase/migrations/`)
 
 ```
-visits          — patient visits (user_id, num, name, addr, date, time, dur, type, cat, notes, status, lat, lng, pay)
+visits          — patient visits (user_id, num, name, addr, date, time, dur, type, cat, notes, status, lat, lng, pay, phone)
 extra_points    — non-visit productivity (user_id, label, date, pts)
-saved_patients  — autocomplete history (user_id, name, addr, lat, lng) — unique per user+name
+saved_patients  — autocomplete history (user_id, name, addr, phone, lat, lng) — unique per user+name
 user_settings   — per-user config (user_id, cat_points jsonb, weekly_target, home_label/lat/lng, theme_mode, accent_id, pay_mode, cat_pay jsonb)
 ```
+
+**Visit `status`** is free-text: `pending` (default) → `confirmed` (patient confirmed the appt — still counts for points and stays in the route) → `done`, plus `skipped` (dropped from route/points/mileage). Only `skipped` is excluded from point/pay totals; helpers to toggle: `markDone()`, `markConfirmed()`, `markSkip()`.
 
 RLS policy pattern on every table: `for all using (auth.uid() = user_id) with check (auth.uid() = user_id)` — a user can only ever see/edit their own rows, enforced by Postgres itself.
 
@@ -67,8 +69,11 @@ Weekly target: **30 points** (configurable per user in Settings).
 - Address autocomplete via Photon, biased toward home base location
 - Saved patients — repeat-patient autocomplete by name, auto-fills address
 - Date navigation — view/add visits for any date (date strip in Visits tab)
-- Route map — Leaflet satellite/street/hybrid, pins + road-following route line (OSRM), next-stop pin highlighted, date strip on the map, Done/Edit/Navigate from pin popups, layer choice remembered per device
+- Route map — Leaflet satellite/street/hybrid, pins + road-following route line (OSRM), next-stop pin highlighted, date strip on the map, Confirm/Done/Edit/Navigate from pin popups, layer choice remembered per device
 - Route optimization — nearest-neighbor + 2-opt improvement; optimized days follow the stored visit `num` order (flag kept in localStorage per device), all other days follow appointment-time order (`routeVisits()` is the single source of driving order)
+- Miles-saved payoff — after optimizing, the list shows a banner + toast with the estimated miles saved vs. driving in appointment-time order (`estSavedMiles()`; straight-line haversine estimate, always labeled `~`)
+- Visit confirmation — a `confirmed` status (patient confirmed the appt) between pending and done; distinct blue styling on cards/hero/pins/calendar and a count in the day Summary
+- Quick texts — optional per-patient phone (`visits.phone`, carried from `saved_patients`) powers a 💬 action on cards + next-stop hero: a bottom-sheet with Call, "On my way", "Running late", and a custom message, all via `sms:`/`tel:` deep links (`openQuickText()`, `smsHref()`)
 - Mileage tracking — real road distance via OSRM (round trip from home base), haversine straight-line as offline fallback; UI labels which one is showing
 - Productivity points — per-visit points auto-calculated by category, configurable per user
 - Pay mode (salaried / PPV) — optional Paid-Per-Visit tracking: per-category dollar rates, per-visit override, day/week earnings shown alongside points (see Pay mode note above)

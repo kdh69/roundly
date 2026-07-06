@@ -38,6 +38,7 @@
   --red:#A93226;--red-bg:#FADBD8;
   --purple:#6C3483;--purple-bg:#E8DAEF;
   --green:#1E8449;--green-bg:#D5F5E3;
+  --blue:#1D4ED8;--blue-bg:#DBEAFE;
 
   /* Chrome — these DO change with dark mode. Neutrals are slightly warm
      so surfaces harmonize with the ambient peach background. */
@@ -223,6 +224,7 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
 .nsh-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .nsh-chip{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;background:rgba(255,255,255,0.22);color:#fff;white-space:nowrap}
 .nsh-chip-todo{background:#fff;color:var(--amber)}
+.nsh-chip-confirmed{background:#fff;color:var(--blue)}
 .nsh-actions{display:flex;gap:10px;margin-top:14px}
 .nsh-btn{flex:1;min-height:52px;border:none;border-radius:var(--radius-md);font-size:15px;font-weight:800;cursor:pointer}
 .nsh-btn:active{transform:scale(0.98)}
@@ -234,9 +236,11 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
 .visit-card.status-done{border-left:4px solid var(--teal)}
 .visit-card.status-skipped{border-left:4px solid var(--gray-400);opacity:0.7}
 .visit-card.status-pending{border-left:4px solid var(--amber)}
+.visit-card.status-confirmed{border-left:4px solid var(--blue)}
 .card-top{display:flex;align-items:flex-start;gap:10px;padding:10px 12px 8px}
 .visit-num-bubble{width:26px;height:26px;border-radius:50%;background:var(--accent-light);color:var(--accent);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
 .visit-card.status-done .visit-num-bubble{background:var(--teal-bg);color:var(--teal)}
+.visit-card.status-confirmed .visit-num-bubble{background:var(--blue-bg);color:var(--blue)}
 .visit-card.status-skipped .visit-num-bubble{background:var(--gray-100);color:var(--gray-600)}
 .card-info{flex:1;min-width:0}
 .card-name{font-size:15px;font-weight:600;color:var(--text);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -250,8 +254,11 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
 .tag-miles{background:var(--teal-bg);color:var(--teal)}
 .tag-pay{background:var(--green-bg);color:var(--green)}
 .tag-todo{background:var(--amber-bg);color:var(--amber)}
+.tag-confirmed{background:var(--blue-bg);color:var(--blue)}
 .details-nudge{background:var(--amber-bg);color:var(--amber);border-radius:var(--radius-md);padding:10px 14px;font-size:13px;font-weight:800;text-align:center;cursor:pointer;box-shadow:var(--shadow-sm)}
 .details-nudge:active{filter:brightness(0.97)}
+.miles-saved-banner{background:var(--green-bg);color:var(--green);border-radius:var(--radius-md);padding:10px 14px;font-size:13px;font-weight:800;text-align:center;box-shadow:var(--shadow-sm)}
+.btn-confirm-act{color:var(--blue)}
 .card-pts-badge{flex-shrink:0}
 .pts-circle{width:40px;height:40px;border-radius:50%;background:var(--purple-bg);display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:inset 0 0 0 1px rgba(108,52,131,0.18),0 1px 3px rgba(0,0,0,0.08)}
 .pts-num{font-size:14px;font-weight:700;color:var(--purple);line-height:1}
@@ -544,6 +551,17 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
 .toast{position:fixed;top:calc(16px + var(--safe-top));left:50%;transform:translateX(-50%) translateY(-80px);background:var(--gray-800);color:var(--white);padding:10px 18px;border-radius:var(--radius-md);font-size:13px;font-weight:500;z-index:600;transition:transform 0.25s ease;text-align:center;max-width:90vw}
 .toast.show{transform:translateX(-50%) translateY(0)}
 [data-theme="dark"] .toast{background:#3A4250;color:#fff}
+.qt-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:700;display:flex;align-items:flex-end;justify-content:center;animation:qtfade 0.15s ease}
+@keyframes qtfade{from{opacity:0}to{opacity:1}}
+.qt-sheet{background:var(--white);width:100%;max-width:480px;border-radius:var(--radius-xl) var(--radius-xl) 0 0;padding:8px 12px calc(14px + var(--safe-bottom));box-shadow:var(--shadow-lg)}
+.qt-head{text-align:center;padding:12px 8px 6px}
+.qt-name{font-size:16px;font-weight:800;color:var(--text)}
+.qt-phone{font-size:13px;color:var(--text-muted);margin-top:2px}
+.qt-item{display:block;width:100%;text-align:center;text-decoration:none;background:var(--gray-100);color:var(--text);border:none;border-radius:var(--radius-md);padding:14px;font-size:15px;font-weight:700;margin-top:8px;cursor:pointer}
+.qt-item:active{filter:brightness(0.96)}
+.qt-call{background:var(--teal-bg);color:var(--teal)}
+.qt-cancel{background:transparent;color:var(--text-muted);font-weight:600}
+.nsh-text{flex:0 0 auto;padding:0 16px;background:rgba(255,255,255,0.18);color:#fff;box-shadow:inset 0 0 0 2px rgba(255,255,255,0.6)}
 
 @media(min-width:481px){
   #app{box-shadow:0 0 60px rgba(93,64,42,0.12)}
@@ -777,6 +795,10 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
       </div>
       <div class="geo-confirm-box" id="geo-confirm-box"></div>
       <div class="geo-warn-box" id="geo-warn-box">⚠️ Couldn't verify this address automatically. Please select it from the dropdown list, or double-check the spelling and ZIP code.</div>
+    </div>
+    <div class="qopt">
+      <div class="field-label">Phone (optional — enables quick texts)</div>
+      <input class="form-input" id="f-phone" type="tel" inputmode="tel" placeholder="e.g. (555) 123-4567" autocomplete="off">
     </div>
     <div class="form-row">
       <div>
@@ -1176,6 +1198,8 @@ function handleListClick(e){
   const id = parseInt(btn.getAttribute('data-id'));
   if(!id) return;
   if(action==='done') markDone(id);
+  else if(action==='confirm') markConfirmed(id);
+  else if(action==='text') openQuickText(id);
   else if(action==='skip') markSkip(id);
   else if(action==='nav') navTo(id);
   else if(action==='edit') openEditPanel(id);
@@ -1221,12 +1245,13 @@ async function loadAllDataFromSupabase(){
   visits = (visitsRes.data||[]).map(r=>({
     id:r.id, num:r.num, name:r.name, addr:r.addr, date:r.date, time:r.time,
     dur:r.dur, type:r.type, cat:r.cat, notes:r.notes||'', status:r.status,
+    phone:r.phone||'',
     pay: r.pay!=null ? Number(r.pay) : null, needsDetails: !!r.needs_details,
     coords: (r.lat!=null && r.lng!=null) ? {lat:r.lat,lng:r.lng} : null
   }));
   extraPoints = (extraRes.data||[]).map(r=>({id:r.id,label:r.label,date:r.date,pts:Number(r.pts)}));
   savedPatients = (patientsRes.data||[]).map(r=>({
-    name:r.name, addr:r.addr,
+    name:r.name, addr:r.addr, phone:r.phone||'',
     cat:r.cat||null, type:r.type||null, dur:r.dur!=null?Number(r.dur):null,
     coords:(r.lat!=null&&r.lng!=null)?{lat:r.lat,lng:r.lng}:null
   }));
@@ -1462,7 +1487,7 @@ async function restoreBackup(evt){
       if(data.visits.length){
         const rows=data.visits.map(v=>({
           user_id:uid, num:v.num||1, name:v.name, addr:v.addr, date:v.date, time:v.time,
-          dur:v.dur, type:v.type, cat:v.cat, notes:v.notes||'', status:v.status||'pending',
+          dur:v.dur, type:v.type, cat:v.cat, notes:v.notes||'', status:v.status||'pending', phone:v.phone||'',
           pay:v.pay??null, needs_details:v.needsDetails??false, lat:v.coords?.lat??null, lng:v.coords?.lng??null
         }));
         await sb.from('visits').insert(rows);
@@ -1474,7 +1499,7 @@ async function restoreBackup(evt){
       if(data.savedPatients?.length){
         for(const p of data.savedPatients){
           await sb.from('saved_patients').upsert({
-            user_id:uid, name:p.name, addr:p.addr,
+            user_id:uid, name:p.name, addr:p.addr, phone:p.phone??null,
             cat:p.cat??null, type:p.type??null, dur:p.dur??null,
             lat:p.coords?.lat??null, lng:p.coords?.lng??null
           },{onConflict:'user_id,name'});
@@ -1833,16 +1858,20 @@ function legInfoFor(v){
 }
 
 // ─── SAVED PATIENTS (autocomplete for repeat visits) ──────────────────────────
-async function upsertSavedPatient(name,addr,coords,cat,type,dur){
+async function upsertSavedPatient(name,addr,coords,cat,type,dur,phone){
   if(!name||!addr) return;
+  // Don't wipe a saved phone when a later visit is saved without one.
+  const ph=(phone&&phone.trim())?phone.trim():null;
   const existing=savedPatients.find(p=>p.name.toLowerCase()===name.toLowerCase());
-  if(existing){existing.addr=addr;existing.coords=coords;existing.cat=cat??null;existing.type=type??null;existing.dur=dur??null;}
-  else savedPatients.push({name,addr,coords,cat:cat??null,type:type??null,dur:dur??null});
-  await sb.from('saved_patients').upsert({
+  if(existing){existing.addr=addr;existing.coords=coords;existing.cat=cat??null;existing.type=type??null;existing.dur=dur??null;if(ph)existing.phone=ph;}
+  else savedPatients.push({name,addr,coords,cat:cat??null,type:type??null,dur:dur??null,phone:ph||''});
+  const row={
     user_id:currentUser.id, name, addr,
     cat:cat??null, type:type??null, dur:dur??null,
     lat:coords?.lat??null, lng:coords?.lng??null
-  },{onConflict:'user_id,name'});
+  };
+  if(ph) row.phone=ph; // only overwrite the stored phone when we actually have one
+  await sb.from('saved_patients').upsert(row,{onConflict:'user_id,name'});
 }
 // Pre-fill the visit form's category/type/duration from a saved patient's
 // last-used values. Guards against categories/types the user has since deleted
@@ -1854,6 +1883,7 @@ function applyPatientDefaults(p){
   const typeSel=document.getElementById('f-type');
   if(p.type && [...typeSel.options].some(o=>o.value===p.type)) typeSel.value=p.type;
   if(p.dur!=null) document.getElementById('f-dur').value=p.dur;
+  if(p.phone) document.getElementById('f-phone').value=p.phone;
   updatePtsPreview();
 }
 function setupNameAutocomplete(){
@@ -2235,6 +2265,7 @@ async function submitVisitForm(){
   const type=document.getElementById('f-type').value;
   const cat=document.getElementById('f-cat').value;
   const notes=document.getElementById('f-notes').value.trim();
+  const phone=document.getElementById('f-phone').value.trim();
   const pts=(catPoints[cat]||0).toFixed(2);
   // Pay override: blank/invalid/negative = null = fall back to the category default.
   const payRaw=document.getElementById('f-pay').value.trim();
@@ -2264,18 +2295,18 @@ async function submitVisitForm(){
     const v=visits.find(v=>v.id===parseInt(editId));
     if(!v){showToast('Visit not found');closeAllPanels();return;}
     const finalCoords=coords||v.coords;
-    Object.assign(v,{name,addr,date,time,dur,type,cat,notes,pay:payVal,needsDetails:false,coords:finalCoords});
+    Object.assign(v,{name,addr,date,time,dur,type,cat,notes,phone,pay:payVal,needsDetails:false,coords:finalCoords});
     await sb.from('visits').update({
-      name,addr,date,time,dur,type,cat,notes,pay:payVal,needs_details:false,
+      name,addr,date,time,dur,type,cat,notes,phone,pay:payVal,needs_details:false,
       lat:finalCoords?.lat??null, lng:finalCoords?.lng??null
     }).eq('id',v.id).eq('user_id',currentUser.id);
-    await upsertSavedPatient(name,addr,finalCoords,cat,type,dur);
+    await upsertSavedPatient(name,addr,finalCoords,cat,type,dur,phone);
     resetForm();closeAllPanels();
     showToast(`✓ ${name} updated — ${pts} pts`);renderAll();
   } else {
     const num=visits.filter(x=>x.date===date).length+1;
     const { data, error } = await sb.from('visits').insert({
-      user_id:currentUser.id, num, name, addr, date, time, dur, type, cat, notes,
+      user_id:currentUser.id, num, name, addr, date, time, dur, type, cat, notes, phone,
       pay:payVal, needs_details:quick, status:'pending', lat:coords?.lat??null, lng:coords?.lng??null
     }).select().single();
     if(error || !data){
@@ -2285,16 +2316,16 @@ async function submitVisitForm(){
     visits.push({
       id:data.id, num:data.num, name:data.name, addr:data.addr, date:data.date,
       time:data.time, dur:data.dur, type:data.type, cat:data.cat, notes:data.notes||'',
-      status:data.status, pay:data.pay!=null?Number(data.pay):null, needsDetails:!!data.needs_details,
+      status:data.status, phone:data.phone||'', pay:data.pay!=null?Number(data.pay):null, needsDetails:!!data.needs_details,
       coords:(data.lat!=null&&data.lng!=null)?{lat:data.lat,lng:data.lng}:null
     });
-    await upsertSavedPatient(name,addr,coords,cat,type,dur);
+    await upsertSavedPatient(name,addr,coords,cat,type,dur,phone);
     resetForm();closeAllPanels();
     showToast(quick?`⚡ ${name} added — add details when ready`:`✓ ${name} added — ${pts} pts`);renderAll();
   }
 }
 function resetForm(){
-  ['f-name','f-addr','f-notes','f-edit-id','f-pay'].forEach(id=>document.getElementById(id).value='');
+  ['f-name','f-addr','f-notes','f-edit-id','f-pay','f-phone'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('addr-dropdown').classList.remove('open');
   document.getElementById('name-dropdown').classList.remove('open');
   document.getElementById('geo-confirm-box').classList.remove('show');
@@ -2314,6 +2345,7 @@ function openEditPanel(id){
   document.getElementById('f-type').value=v.type;
   document.getElementById('f-cat').value=v.cat;
   document.getElementById('f-notes').value=v.notes||'';
+  document.getElementById('f-phone').value=v.phone||'';
   document.getElementById('f-pay').value=v.pay!=null?v.pay:'';
   document.getElementById('geo-confirm-box').classList.remove('show');
   document.getElementById('geo-warn-box').classList.remove('show');
@@ -2349,6 +2381,54 @@ async function markSkip(id){
   renderAll();
   const {error}=await sb.from('visits').update({status:v.status}).eq('id',id).eq('user_id',currentUser.id);
   if(error) showToast('⚠️ Couldn\'t sync — check connection');
+}
+// Confirmed = patient confirmed the appointment. Still counts for points and
+// stays in the route (unlike skipped); just a distinct pre-visit state.
+async function markConfirmed(id){
+  const v=visits.find(v=>v.id===id);
+  if(!v) return;
+  v.status=(v.status==='confirmed')?'pending':'confirmed';
+  renderAll();
+  const {error}=await sb.from('visits').update({status:v.status}).eq('id',id).eq('user_id',currentUser.id);
+  if(error) showToast('⚠️ Couldn\'t sync — check connection');
+}
+// ─── QUICK TEXTS ──────────────────────────────────────────────────────────────
+// One-tap SMS presets a clinician sends constantly ("On my way", "Running late").
+// `sms:NUMBER?&body=…` is the cross-platform deep link (iOS + Android both honor
+// the ?& form). Opens the native Messages app pre-filled; the user still hits send.
+const QUICK_TEXT_PRESETS=['On my way!','Running a little late — be there soon.'];
+function smsHref(phone,body){
+  const digits=(phone||'').replace(/[^\d+]/g,'');
+  return `sms:${digits}?&body=${encodeURIComponent(body)}`;
+}
+function closeQuickText(){const el=document.getElementById('qt-backdrop');if(el)el.remove();}
+function openQuickText(id){
+  const v=visits.find(v=>v.id===id);
+  if(!v) return;
+  const phone=(v.phone||'').trim();
+  if(!phone){showToast('No phone saved — add one with Edit');openEditPanel(id);return;}
+  closeQuickText();
+  const digits=phone.replace(/[^\d+]/g,'');
+  const wrap=document.createElement('div');
+  wrap.id='qt-backdrop';wrap.className='qt-backdrop';
+  wrap.innerHTML=`<div class="qt-sheet" role="dialog" aria-label="Text ${escAttr(v.name)}">
+    <div class="qt-head"><div class="qt-name">${escAttr(v.name)}</div><div class="qt-phone">${escAttr(phone)}</div></div>
+    <a class="qt-item qt-call" href="tel:${digits}">📞 Call</a>
+    ${QUICK_TEXT_PRESETS.map(m=>`<a class="qt-item" href="${smsHref(phone,m)}">💬 ${escAttr(m)}</a>`).join('')}
+    <button class="qt-item qt-custom" data-qt-custom="1">✏️ Custom message…</button>
+    <button class="qt-item qt-cancel" data-qt-cancel="1">Cancel</button>
+  </div>`;
+  document.body.appendChild(wrap);
+  wrap.addEventListener('click',e=>{
+    if(e.target===wrap||e.target.hasAttribute('data-qt-cancel')){closeQuickText();return;}
+    if(e.target.hasAttribute('data-qt-custom')){
+      const msg=prompt(`Message to ${v.name}:`,'');
+      closeQuickText();
+      if(msg&&msg.trim()) window.location.href=smsHref(phone,msg.trim());
+      return;
+    }
+    if(e.target.closest('a.qt-item')) setTimeout(closeQuickText,300); // let the tel:/sms: link fire first
+  });
 }
 async function deleteVisit(id){
   const v=visits.find(x=>x.id===id);
@@ -2476,6 +2556,25 @@ function calcTotalMiles(){
 // True when today's mileage figure comes from real road routing (OSRM) rather
 // than the straight-line estimate.
 function milesAreRoad(){return !!roadData();}
+// Straight-line round-trip length (home → stops → home) of a given visit order.
+function tourMiles(arr){
+  const s=arr.filter(v=>v.coords);
+  if(!s.length) return 0;
+  let t=0,prev=homeCoords;
+  for(const v of s){t+=haversine(prev,v.coords);prev=v.coords;}
+  return t+haversine(prev,homeCoords);
+}
+// Estimated miles saved by optimizing a day vs. driving it in appointment-time
+// order. Straight-line (haversine) estimate — always labeled "~" in the UI.
+// Returns 0 when the day hasn't been optimized or has fewer than 2 pinned stops.
+function estSavedMiles(dateStr){
+  if(!optimizedDates[dateStr]) return 0;
+  const day=visits.filter(v=>v.date===dateStr && v.coords);
+  if(day.length<2) return 0;
+  const optOrder=day.slice().sort((a,b)=>a.num-b.num||a.time.localeCompare(b.time));
+  const timeOrder=day.slice().sort((a,b)=>a.time.localeCompare(b.time)||a.num-b.num);
+  return Math.max(0, tourMiles(timeOrder)-tourMiles(optOrder));
+}
 function calcWeekVisitPoints(off){
   const{monday,sunday}=getWeekBounds(off);
   return visits.filter(v=>{const d=new Date(v.date+'T12:00:00');return d>=monday&&d<=sunday&&v.status!=='skipped';})
@@ -2540,9 +2639,11 @@ async function optimizeRoute(){
   const reordered=visits.filter(v=>v.date===ld);
   reordered.forEach((v,i)=>v.num=i+1);
   setSort('num'); // show the driving order in the list (also re-renders)
+  const savedMi=estSavedMiles(ld);
+  const savedTxt=savedMi>=0.1?` · saving ~${savedMi.toFixed(1)} mi`:'';
   showToast(unpinned.length
-    ? `⚡ Route optimized — ${unpinned.length} visit${unpinned.length>1?'s':''} without a pin kept at end`
-    : '⚡ Route optimized!');
+    ? `⚡ Route optimized${savedTxt} — ${unpinned.length} visit${unpinned.length>1?'s':''} without a pin kept at end`
+    : `⚡ Route optimized${savedTxt}!`);
   let syncFailed=false;
   for(const v of reordered){
     const {error}=await sb.from('visits').update({num:v.num}).eq('id',v.id).eq('user_id',currentUser.id);
@@ -2614,7 +2715,7 @@ function renderCalMonthGrid(){
     const dayVisits=visits.filter(v=>v.date===ds);
     const dayPts=calcDayPoints(ds);
     const dots=dayVisits.slice(0,4).map(v=>{
-      const color=v.status==='done'?'#0E7C66':v.status==='skipped'?'#9AA4B0':'#A85A0E';
+      const color=v.status==='done'?'#0E7C66':v.status==='confirmed'?'#1D4ED8':v.status==='skipped'?'#9AA4B0':'#A85A0E';
       return `<div class="cal-day-dot" style="background:${color}"></div>`;
     }).join('');
     html+=`<div class="cal-day ${isOtherMonth?'other-month':''} ${isToday?'is-today':''} ${isSelected?'selected':''}" data-date="${ds}">
@@ -2691,9 +2792,9 @@ function setLayerOnMap(name){
     labelLayer=L.tileLayer(cfg.labels,{attribution:'',maxZoom:19,opacity:0.85}).addTo(leafletMap);
 }
 function makePin(v){
-  const color=v.status==='done'?'#0E7C66':v.status==='skipped'?'#888':'#A85A0E';
+  const color=v.status==='done'?'#0E7C66':v.status==='confirmed'?'#1D4ED8':v.status==='skipped'?'#888':'#A85A0E';
   // Highlight the next pending stop in the driving order
-  const nextPending=routeVisits(v.date).find(x=>x.status==='pending'&&x.coords);
+  const nextPending=routeVisits(v.date).find(x=>(x.status==='pending'||x.status==='confirmed')&&x.coords);
   const isNext=!!nextPending&&nextPending.id===v.id;
   return L.divIcon({html:`<div class="marker-pin${isNext?' next-stop':''}" style="background:${color}">${visitNumber(v)}</div>`,className:'',iconSize:[28,28],iconAnchor:[14,14],popupAnchor:[0,-16]});
 }
@@ -2726,6 +2827,7 @@ function updateMapMarkers(){
         </p>
         ${v.notes?`<p style="font-style:italic;font-size:11px">💬 ${escAttr(v.notes)}</p>`:''}
         <div class="pop-row">
+          ${(v.status==='pending'||v.status==='confirmed')?`<button class="pop-btn" style="background:#1D4ED8" data-action="confirm" data-id="${v.id}">${v.status==='confirmed'?'↩️ Unconfirm':'✓ Confirm'}</button>`:''}
           <button class="pop-btn" style="background:var(--teal)" data-action="done" data-id="${v.id}">${v.status==='done'?'↩️ Undo':'✅ Done'}</button>
           <button class="pop-btn" style="background:var(--gray-600)" data-action="edit" data-id="${v.id}">✏️ Edit</button>
         </div>
@@ -2756,6 +2858,7 @@ function updateMapMarkers(){
       btn.onclick=()=>{
         if(act==='nav') navTo(id);
         else if(act==='done'){leafletMap.closePopup();markDone(id);}
+        else if(act==='confirm'){leafletMap.closePopup();markConfirmed(id);}
         else if(act==='edit'){leafletMap.closePopup();openEditPanel(id);}
       };
     });
@@ -2794,10 +2897,11 @@ function renderList(){
   let heroHtml='';
   if(listSelectedDate===todayStr()){
     const route=routeVisits(todayStr());
-    const next=route.find(v=>v.status==='pending');
+    const next=route.find(v=>v.status==='pending'||v.status==='confirmed');
     if(next){
       const nd=legOf(next);
       const chipItems=[{t:next.time},{t:next.dur+'m'}];
+      if(next.status==='confirmed') chipItems.push({t:'✓ Confirmed',cls:'nsh-chip-confirmed'});
       if(next.needsDetails) chipItems.push({t:'Needs details',cls:'nsh-chip-todo'});
       else{
         chipItems.push({t:escAttr(CAT_LABELS[next.cat]||next.cat)});
@@ -2812,6 +2916,7 @@ function renderList(){
         <div class="nsh-tags">${chips}</div>
         <div class="nsh-actions">
           <button class="nsh-btn nsh-nav" data-action="nav" data-id="${next.id}">Navigate</button>
+          ${next.phone?`<button class="nsh-btn nsh-text" data-action="text" data-id="${next.id}">💬</button>`:''}
           <button class="nsh-btn nsh-done" data-action="done" data-id="${next.id}">Mark done</button>
         </div>
       </div>`;
@@ -2826,7 +2931,12 @@ function renderList(){
   const nudgeHtml = incomplete.length
     ? `<div class="details-nudge" data-action="edit" data-id="${incomplete[0].id}">⚠ ${incomplete.length} visit${incomplete.length>1?'s':''} need details — tap to complete</div>`
     : '';
-  c.innerHTML=nudgeHtml+heroHtml+sorted.map((v,i)=>{
+  // Miles-saved payoff: shows once a day has been optimized (straight-line est).
+  const savedMi=estSavedMiles(listSelectedDate);
+  const savedBannerHtml = savedMi>=0.1
+    ? `<div class="miles-saved-banner">⚡ Optimized — saving ~${savedMi.toFixed(1)} mi vs. appointment order</div>`
+    : '';
+  c.innerHTML=nudgeHtml+savedBannerHtml+heroHtml+sorted.map((v,i)=>{
     const dist=legOf(v);
     const pts=getPoints(v);
     return `<div class="visit-card status-${v.status}">
@@ -2836,6 +2946,7 @@ function renderList(){
           <div class="card-name">${escAttr(v.name)}</div>
           <div class="card-addr" data-action="nav" data-id="${v.id}" title="Tap to navigate">${escAttr(v.addr)}</div>
           <div class="card-tags">
+            ${v.status==='confirmed'?'<span class="tag tag-confirmed">✓ Confirmed</span>':''}
             ${v.needsDetails?'<span class="tag tag-todo">Needs details</span>':''}
             <span class="tag tag-time">${v.time}</span>
             <span class="tag tag-dur">${v.dur}m</span>
@@ -2849,8 +2960,10 @@ function renderList(){
       </div>
       ${v.notes?`<div class="card-notes">${escAttr(v.notes)}</div>`:''}
       <div class="card-actions">
+        ${(v.status==='pending'||v.status==='confirmed')?`<button class="card-action-btn btn-confirm-act" data-action="confirm" data-id="${v.id}">${v.status==='confirmed'?'Unconfirm':'Confirm'}</button>`:''}
         <button class="card-action-btn btn-done-act" data-action="done" data-id="${v.id}">${v.status==='done'?'Undo':'Done'}</button>
         <button class="card-action-btn" data-action="skip" data-id="${v.id}">${v.status==='skipped'?'Unskip':'Skip'}</button>
+        ${v.phone?`<button class="card-action-btn btn-text-act" data-action="text" data-id="${v.id}">💬 Text</button>`:''}
         <button class="card-action-btn btn-nav-act" data-action="nav" data-id="${v.id}">Navigate</button>
         <button class="card-action-btn" style="color:var(--accent-mid)" data-action="edit" data-id="${v.id}">Edit</button>
         <button class="card-action-btn btn-del-act" data-action="delete" data-id="${v.id}">Delete</button>
@@ -2937,7 +3050,7 @@ function renderPoints(){
     const rows=items.map(it=>{
       if(it.kind==='visit'){
         const v=it.data;
-        const dot=v.status==='done'?'#0E7C66':v.status==='skipped'?'#9AA4B0':'#A85A0E';
+        const dot=v.status==='done'?'#0E7C66':v.status==='confirmed'?'#1D4ED8':v.status==='skipped'?'#9AA4B0':'#A85A0E';
         return `<div class="day-visit-row tap" onclick="openEditPanel(${v.id})" title="Tap to edit">
           <div class="dv-status-dot" style="background:${dot}"></div>
           <div class="dv-name">${escAttr(v.name)}</div>
@@ -2977,6 +3090,7 @@ function renderSummary(){
   const sorted=routeVisits(listSelectedDate);
   const mi=calcTotalMiles();
   const done=visits.filter(v=>v.date===listSelectedDate&&v.status==='done').length;
+  const conf=visits.filter(v=>v.date===listSelectedDate&&v.status==='confirmed').length;
   const pend=visits.filter(v=>v.date===listSelectedDate&&v.status==='pending').length;
   const skip=visits.filter(v=>v.date===listSelectedDate&&v.status==='skipped').length;
   const todayPts=calcDayPoints(listSelectedDate);
@@ -3003,6 +3117,7 @@ function renderSummary(){
       <div class="summary-row"><span class="s-label">Week pay</span><span class="s-val" style="color:var(--green)">${fmtMoney(weekPay)}</span></div>`:''}
       <div class="summary-row"><span class="s-label">Patients this day</span><span class="s-val">${sorted.length}</span></div>
       <div class="summary-row"><span class="s-label">Completed</span><span class="s-val" style="color:var(--teal)">${done}</span></div>
+      ${conf?`<div class="summary-row"><span class="s-label">Confirmed</span><span class="s-val" style="color:var(--blue)">${conf}</span></div>`:''}
       <div class="summary-row"><span class="s-label">Pending</span><span class="s-val" style="color:var(--amber)">${pend}</span></div>
       <div class="summary-row"><span class="s-label">Skipped</span><span class="s-val" style="color:var(--red)">${skip}</span></div>
     </div>

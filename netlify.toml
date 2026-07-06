@@ -1,0 +1,8 @@
+# Roundly stays a static single-file app served from the repo root.
+# The only server-side piece is a tiny proxy for the NPI (doctor) registry,
+# which the browser cannot call directly because NPPES sends no CORS headers.
+[build]
+  publish = "."
+
+[functions]
+  directory = "netlify/functions"

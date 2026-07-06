@@ -197,7 +197,10 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
 /* ===== SORT BAR ===== */
 .sort-bar{display:flex;align-items:center;gap:6px;padding:6px 12px;border-bottom:none;background:transparent;flex-shrink:0;overflow-x:auto}
 .sort-bar::-webkit-scrollbar{display:none}
-.sort-lbl{font-size:11px;color:var(--text-muted);font-weight:600;white-space:nowrap}
+.sort-select-wrap{position:relative;display:inline-flex;flex-shrink:0}
+.sort-select-wrap::after{content:'▾';position:absolute;right:11px;top:50%;transform:translateY(-50%);color:var(--accent);pointer-events:none;font-size:11px}
+.sort-select{font-size:11px;font-weight:700;padding:7px 26px 7px 12px;border-radius:20px;border:none;background:var(--white);color:var(--accent);box-shadow:var(--shadow-sm);cursor:pointer;appearance:none;-webkit-appearance:none;white-space:nowrap}
+.sort-select:focus{outline:none;box-shadow:0 0 0 2px var(--accent-mid)}
 .sort-btn{font-size:11px;padding:6px 11px;border-radius:20px;border:none;background:var(--white);color:var(--text-muted);cursor:pointer;white-space:nowrap;font-weight:600;box-shadow:var(--shadow-sm)}
 .sort-btn.active{background:var(--accent-grad);color:white}
 .sort-btn-opt{font-size:11px;padding:6px 11px;border-radius:20px;border:none;background:var(--teal-bg);color:var(--teal);cursor:pointer;white-space:nowrap;font-weight:700;margin-left:auto;box-shadow:var(--shadow-sm)}
@@ -711,11 +714,14 @@ body.hide-fabs .fab,body.hide-fabs .fab-quick,body.hide-fabs .fab-extra{display:
     </div>
 
     <div class="sort-bar">
-      <span class="sort-lbl">Sort:</span>
-      <button class="sort-btn active" id="sort-time" onclick="setSort('time')">⏰ Time</button>
-      <button class="sort-btn" id="sort-num" onclick="setSort('num')"># Order</button>
-      <button class="sort-btn" id="sort-status" onclick="setSort('status')">✓ Status</button>
-      <button class="sort-btn num-dir-btn" onclick="toggleVisitNumDir()">🕐 Earliest first</button>
+      <span class="sort-select-wrap">
+        <select class="sort-select" id="sort-select" onchange="setSort(this.value)" aria-label="Sort visits">
+          <option value="time">⏰ By time</option>
+          <option value="num"># By route order</option>
+          <option value="status">✓ By status</option>
+        </select>
+      </span>
+      <button class="sort-btn num-dir-btn" onclick="toggleVisitNumDir()">🕐 Earliest</button>
       <button class="sort-btn-opt" onclick="optimizeRoute()">⚡ Optimize</button>
       <button class="sort-btn-drive" onclick="enterDriveMode()">🚗 Drive</button>
     </div>
@@ -1168,6 +1174,11 @@ async function initAuthFlow(){
   sb.auth.onAuthStateChange(async (event, session)=>{
     if(event==='SIGNED_IN' && session && session.user && !currentUser){
       await onSignedIn(session.user);
+    } else if(event==='TOKEN_REFRESHED' && currentUser && visits.length===0){
+      // Backstop: if the initial load came back empty because the access token
+      // was stale, re-pull once the refreshed token arrives so her visits show
+      // up on their own — no second manual refresh needed.
+      try{ await loadAllDataFromSupabase(); renderAll(); }catch(e){}
     } else if(event==='SIGNED_OUT'){
       currentUser=null;
       document.getElementById('app').style.display='none';
@@ -1291,12 +1302,24 @@ function escAttr(s){
 async function loadAllDataFromSupabase(){
   const uid = currentUser.id;
 
-  const [visitsRes, extraRes, patientsRes, settingsRes] = await Promise.all([
+  const fetchAll = ()=>Promise.all([
     sb.from('visits').select('*').eq('user_id',uid).order('id',{ascending:true}),
     sb.from('extra_points').select('*').eq('user_id',uid).order('id',{ascending:true}),
     sb.from('saved_patients').select('*').eq('user_id',uid).order('name',{ascending:true}),
     sb.from('user_settings').select('*').eq('user_id',uid).maybeSingle()
   ]);
+
+  let [visitsRes, extraRes, patientsRes, settingsRes] = await fetchAll();
+
+  // If the page loaded with a stale/expired access token (login tokens expire
+  // after ~1 hour), PostgREST rejects the read ("JWT expired") and .data comes
+  // back null — which used to render as an EMPTY app, i.e. all past visits
+  // appearing to vanish until a later manual refresh. Force a token refresh and
+  // retry once so the data loads correctly the first time.
+  if(visitsRes.error){
+    try{ await sb.auth.refreshSession(); }catch(e){}
+    [visitsRes, extraRes, patientsRes, settingsRes] = await fetchAll();
+  }
 
   visits = (visitsRes.data||[]).map(r=>({
     id:r.id, num:r.num, name:r.name, addr:r.addr, date:r.date, time:r.time,
@@ -2663,8 +2686,8 @@ async function deleteExtraPoint(id){
 // ─── SORT + DATE NAVIGATION FOR VISITS TAB ────────────────────────────────────
 function setSort(mode){
   sortMode=mode;
-  document.querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('sort-'+mode)?.classList.add('active');
+  const sel=document.getElementById('sort-select');
+  if(sel && sel.value!==mode) sel.value=mode;
   renderAll();
 }
 function getSorted(){
@@ -2690,7 +2713,7 @@ function toggleVisitNumDir(){
   showToast(visitNumDir==='asc' ? 'Numbered earliest → latest' : 'Numbered latest → earliest');
 }
 function updateVisitNumDirBtn(){
-  const label = visitNumDir==='asc' ? '🕐 Earliest first' : '🕐 Latest first';
+  const label = visitNumDir==='asc' ? '🕐 Earliest' : '🕐 Latest';
   document.querySelectorAll('.num-dir-btn').forEach(b=>b.textContent=label);
 }
 function shiftListDate(dir){

@@ -265,7 +265,7 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
 .pts-word{font-size:8px;color:var(--purple);opacity:0.85}
 .card-notes{padding:0 12px 8px 48px;font-size:12px;color:var(--text-muted);font-style:italic}
 .card-actions{display:flex;border-top:1px solid var(--gray-100);background:var(--gray-50)}
-.card-action-btn{flex:1;padding:11px 2px;font-size:12px;font-weight:700;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-muted);border-right:1px solid var(--gray-200)}
+.card-action-btn{flex:1;min-height:44px;padding:11px 2px;font-size:12px;font-weight:700;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-muted);border-right:1px solid var(--gray-200)}
 .card-action-btn:last-child{border-right:none}
 .card-action-btn:active{background:var(--gray-100)}
 .card-action-btn.btn-done-act{color:var(--teal)}
@@ -552,6 +552,10 @@ body.hide-fabs .fab,body.hide-fabs .fab-quick,body.hide-fabs .fab-extra{display:
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:400;opacity:0;pointer-events:none;transition:opacity 0.25s}
 .overlay.open{opacity:1;pointer-events:all}
 .toast{position:fixed;top:calc(16px + var(--safe-top));left:50%;transform:translateX(-50%) translateY(-80px);background:var(--gray-800);color:var(--white);padding:10px 18px;border-radius:var(--radius-md);font-size:13px;font-weight:500;z-index:600;transition:transform 0.25s ease;text-align:center;max-width:90vw}
+/* Undo bar (delete-undo) — top-placed so it never clashes with the bottom FABs */
+.undo-bar{position:fixed;top:calc(16px + var(--safe-top));left:50%;transform:translateX(-50%) translateY(-90px);opacity:0;pointer-events:none;background:var(--gray-800);color:var(--white);padding:8px 8px 8px 16px;border-radius:var(--radius-md);font-size:13px;font-weight:600;z-index:650;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow-md);max-width:92vw;transition:transform 0.25s ease,opacity 0.25s ease}
+.undo-bar.show{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0)}
+.undo-bar-btn{background:none;border:none;color:var(--accent-mid);font-weight:800;font-size:13px;cursor:pointer;padding:6px 10px;white-space:nowrap;min-height:36px}
 .toast.show{transform:translateX(-50%) translateY(0)}
 [data-theme="dark"] .toast{background:#3A4250;color:#fff}
 .qt-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:900;display:flex;align-items:flex-end;justify-content:center;animation:qtfade 0.15s ease}
@@ -1035,6 +1039,7 @@ body.hide-fabs .fab,body.hide-fabs .fab-quick,body.hide-fabs .fab-extra{display:
 
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
+<div class="undo-bar" id="undo-bar"><span id="undo-bar-msg"></span><button class="undo-bar-btn" id="undo-bar-btn">Undo</button></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -2413,7 +2418,8 @@ function openEditPanel(id){
 async function deleteFromEditPanel(){
   const id=parseInt(document.getElementById('f-delete-btn').getAttribute('data-id'));
   if(!id) return;
-  if(await deleteVisit(id)){closeAllPanels();showToast('🗑️ Visit deleted');}
+  closeAllPanels();
+  deleteVisit(id); // shows its own Undo bar
 }
 
 // ─── VISIT ACTIONS ────────────────────────────────────────────────────────────
@@ -2585,10 +2591,11 @@ function renderDriveMode(){
 async function deleteVisit(id){
   const v=visits.find(x=>x.id===id);
   if(!v) return false;
-  if(!confirm(`Delete visit for ${v.name}? This can't be undone.`)) return false;
+  // No blocking confirm — delete immediately and offer a 6s Undo instead.
+  const snap={...v, coords:v.coords?{...v.coords}:null};
   const date=v.date;
-  visits=visits.filter(v=>v.id!==id);
-  visits.filter(x=>x.date===date).forEach((v,i)=>v.num=i+1);
+  visits=visits.filter(x=>x.id!==id);
+  visits.filter(x=>x.date===date).forEach((x,i)=>x.num=i+1);
   renderAll();
   const {error}=await sb.from('visits').delete().eq('id',id).eq('user_id',currentUser.id);
   if(error) showToast('⚠️ Couldn\'t sync delete — check connection');
@@ -2597,7 +2604,28 @@ async function deleteVisit(id){
   for(const sv of sameDay){
     await sb.from('visits').update({num:sv.num}).eq('id',sv.id).eq('user_id',currentUser.id);
   }
+  showUndoToast(`Deleted ${snap.name}`, ()=>restoreDeletedVisit(snap));
   return true;
+}
+// Re-insert a just-deleted visit (new row id) with all its fields intact.
+async function restoreDeletedVisit(snap){
+  const date=snap.date;
+  const num=visits.filter(x=>x.date===date).length+1;
+  const {data,error}=await sb.from('visits').insert({
+    user_id:currentUser.id, num, name:snap.name, addr:snap.addr, date:snap.date, time:snap.time,
+    dur:snap.dur, type:snap.type, cat:snap.cat, notes:snap.notes||'', status:snap.status||'pending',
+    phone:snap.phone||null, pay:snap.pay??null, needs_details:snap.needsDetails??false,
+    lat:snap.coords?.lat??null, lng:snap.coords?.lng??null
+  }).select().single();
+  if(error||!data){ showToast('⚠️ Could not undo — check connection'); return; }
+  visits.push({
+    id:data.id, num:data.num, name:data.name, addr:data.addr, date:data.date, time:data.time,
+    dur:data.dur, type:data.type, cat:data.cat, notes:data.notes||'', status:data.status,
+    phone:data.phone||'', pay:data.pay!=null?Number(data.pay):null, needsDetails:!!data.needs_details,
+    coords:(data.lat!=null&&data.lng!=null)?{lat:data.lat,lng:data.lng}:null
+  });
+  renderAll();
+  showToast(`↩️ Restored ${data.name}`);
 }
 function navTo(id){
   const v=visits.find(v=>v.id===id);
@@ -3386,6 +3414,17 @@ async function copyAppLink(){
 function showToast(msg){
   const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
   clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2800);
+}
+let _undoTimer=null;
+function showUndoToast(msg,onUndo){
+  const bar=document.getElementById('undo-bar');
+  document.getElementById('undo-bar-msg').textContent=msg;
+  const btn=document.getElementById('undo-bar-btn');
+  bar.classList.add('show');
+  clearTimeout(_undoTimer);
+  const hide=()=>{bar.classList.remove('show');clearTimeout(_undoTimer);btn.onclick=null;};
+  btn.onclick=()=>{hide();onUndo();};
+  _undoTimer=setTimeout(hide,6000);
 }
 
 // ─── RENDER ALL ───────────────────────────────────────────────────────────────

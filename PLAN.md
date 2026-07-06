@@ -148,11 +148,12 @@ In **`renderList()`** (~line 2571):
 
 ---
 
-## Slice 4 — Swipe-to-complete, touch targets, delete-undo
+## Slice 4 — (swipe dropped), touch targets, delete-undo
 
 **Goal:** in-car ergonomics — fewer, bigger, safer taps.
 
-**Status:** [ ] not started
+**Status:** [x] shipped (swipe intentionally DROPPED — the parallel "Drive Mode" chat owns swipe: left/right between stops on `#drive-mode`; a second list-card swipe would fight it). Shipped: `deleteVisit` no longer uses a blocking `confirm()` — it deletes immediately and shows a 6s **Undo bar** (`#undo-bar`, top-placed so it never clashes with the bottom FABs); `restoreDeletedVisit()` re-inserts with all fields (incl. phone/pay/needs_details/status/coords). `deleteFromEditPanel` closes + delegates to `deleteVisit`. `.card-action-btn` given `min-height:44px`.
+Also fixed this pass: the add FABs (+/⚡/⭐) were floating over every tab and covering the last card — now Visits-only, un-stacked (⚡ beside +), with bottom padding on the list.
 
 ### 4.1 Swipe right = Done toggle
 

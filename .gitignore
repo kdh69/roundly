@@ -25,3 +25,6 @@ npm-debug.log*
 
 # Netlify local cache
 .netlify/
+
+# Vercel local link config (app deploys via Netlify; project.json holds link IDs)
+.vercel/

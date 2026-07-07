@@ -25,14 +25,23 @@
   status = 404
   force = true
 
+# Netlify splats only match as a trailing wildcard, so the /supabase/* and
+# /netlify/* rules above cover those trees, but root-level files need explicit
+# entries rather than a "/*.md"-style suffix glob (which never matches).
 [[redirects]]
-  from = "/*.sql"
+  from = "/supabase_schema.sql"
   to = "/index.html"
   status = 404
   force = true
 
 [[redirects]]
-  from = "/*.md"
+  from = "/CLAUDE.md"
+  to = "/index.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/PLAN.md"
   to = "/index.html"
   status = 404
   force = true

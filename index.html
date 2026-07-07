@@ -572,6 +572,31 @@ body.hide-fabs .fab,body.hide-fabs .fab-quick,body.hide-fabs .fab-extra{display:
 .qt-call{background:var(--teal-bg);color:var(--teal)}
 .qt-cancel{background:transparent;color:var(--text-muted);font-weight:600}
 .nsh-text{flex:0 0 auto;padding:0 16px;background:rgba(255,255,255,0.18);color:#fff;box-shadow:inset 0 0 0 2px rgba(255,255,255,0.6)}
+/* ===== PATIENT REFERENCE SHEET (doctors + notes) ===== */
+.pd-sheet{max-height:88vh;overflow-y:auto}
+.card-action-btn.btn-ref-act{color:var(--teal)}
+.pd-section-lbl{font-size:12px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.03em;margin:14px 2px 6px}
+.pd-hint{font-weight:600;text-transform:none;letter-spacing:0;color:var(--gray-600)}
+.pd-empty{font-size:13px;color:var(--text-muted);padding:4px 2px 2px;font-style:italic}
+.pd-doc{display:flex;align-items:center;gap:8px;background:var(--gray-100);border-radius:var(--radius-md);padding:10px 12px;margin-top:6px}
+.pd-doc-info{flex:1;min-width:0}
+.pd-doc-name{font-size:14px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis}
+.pd-doc-sub{font-size:12px;color:var(--text-muted);margin-top:1px}
+.pd-call{flex:0 0 auto;text-decoration:none;background:var(--teal-bg);color:var(--teal);border-radius:var(--radius-sm);padding:8px 12px;font-size:16px;min-height:40px;display:flex;align-items:center}
+.pd-unlink{flex:0 0 auto;background:none;border:none;color:var(--gray-600);font-size:15px;cursor:pointer;padding:8px;min-height:40px}
+.pd-add-toggle{display:block;width:100%;text-align:center;background:transparent;border:1.5px dashed var(--gray-400);color:var(--accent-mid);border-radius:var(--radius-md);padding:11px;font-size:14px;font-weight:700;margin-top:8px;cursor:pointer}
+.pd-add{margin-top:8px}
+.pd-add-row{display:flex;gap:6px;margin-top:6px}
+.pd-input{flex:0 0 auto;width:auto}
+.pd-grow{flex:1;min-width:0}
+.pd-add-row #pd-search{flex:1;min-width:0}
+.pd-btn{flex:0 0 auto;white-space:nowrap;background:var(--accent-grad);color:#fff;border:none;border-radius:var(--radius-md);padding:0 14px;font-size:13px;font-weight:800;cursor:pointer;min-height:44px}
+.pd-note{font-size:13px;color:var(--text-muted);padding:8px 2px}
+.pd-result{display:block;width:100%;text-align:left;background:var(--gray-100);border:none;border-radius:var(--radius-md);padding:10px 12px;margin-top:6px;cursor:pointer}
+.pd-result:active{filter:brightness(0.96)}
+.pd-manual-lbl{font-size:11px;color:var(--gray-600);text-align:center;margin:12px 0 2px;text-transform:uppercase;letter-spacing:0.04em}
+.pd-notes{width:100%;min-height:110px;resize:vertical;border:1.5px solid var(--gray-200);border-radius:var(--radius-md);padding:11px 12px;font-size:15px;font-family:inherit;color:var(--text);background:var(--white);margin-top:2px;line-height:1.4}
+.pd-notes:focus{outline:none;border-color:var(--accent-mid)}
 /* ===== DRIVE MODE ===== */
 .sort-btn-drive{font-size:11px;padding:6px 11px;border-radius:20px;border:none;background:var(--accent-grad);color:#fff;cursor:pointer;white-space:nowrap;font-weight:800;box-shadow:var(--shadow-sm)}
 .drive-mode{position:fixed;inset:0;z-index:800;background:var(--accent-grad);color:#fff;display:none;flex-direction:column;padding:calc(10px + var(--safe-top)) 16px calc(16px + var(--safe-bottom))}
@@ -1101,7 +1126,7 @@ let pinHash = null;          // null = no quick-lock PIN set (local only, separa
 let appUnlocked = false;
 
 // ─── APP STATE ────────────────────────────────────────────────────────────────
-let visits=[], extraPoints=[], savedPatients=[];
+let visits=[], extraPoints=[], savedPatients=[], providers=[];
 let sortMode='time', currentView='list', viewingWeekOffset=0;
 // Direction for the visit numbers shown on the map pins and list bubbles:
 // 'asc' = earliest appointment is #1, 'desc' = latest is #1.
@@ -1267,6 +1292,7 @@ function handleListClick(e){
   if(action==='done') markDone(id);
   else if(action==='confirm') markConfirmed(id);
   else if(action==='text') openQuickText(id);
+  else if(action==='patient'){ const v=visits.find(x=>x.id===id); if(v) openPatientSheet(v.name); }
   else if(action==='skip') markSkip(id);
   else if(action==='nav') navTo(id);
   else if(action==='edit') openEditPanel(id);
@@ -1306,10 +1332,11 @@ async function loadAllDataFromSupabase(){
     sb.from('visits').select('*').eq('user_id',uid).order('id',{ascending:true}),
     sb.from('extra_points').select('*').eq('user_id',uid).order('id',{ascending:true}),
     sb.from('saved_patients').select('*').eq('user_id',uid).order('name',{ascending:true}),
-    sb.from('user_settings').select('*').eq('user_id',uid).maybeSingle()
+    sb.from('user_settings').select('*').eq('user_id',uid).maybeSingle(),
+    sb.from('providers').select('*').eq('user_id',uid).order('name',{ascending:true})
   ]);
 
-  let [visitsRes, extraRes, patientsRes, settingsRes] = await fetchAll();
+  let [visitsRes, extraRes, patientsRes, settingsRes, providersRes] = await fetchAll();
 
   // If the page loaded with a stale/expired access token (login tokens expire
   // after ~1 hour), PostgREST rejects the read ("JWT expired") and .data comes
@@ -1318,7 +1345,7 @@ async function loadAllDataFromSupabase(){
   // retry once so the data loads correctly the first time.
   if(visitsRes.error){
     try{ await sb.auth.refreshSession(); }catch(e){}
-    [visitsRes, extraRes, patientsRes, settingsRes] = await fetchAll();
+    [visitsRes, extraRes, patientsRes, settingsRes, providersRes] = await fetchAll();
   }
 
   visits = (visitsRes.data||[]).map(r=>({
@@ -1332,7 +1359,11 @@ async function loadAllDataFromSupabase(){
   savedPatients = (patientsRes.data||[]).map(r=>({
     name:r.name, addr:r.addr, phone:r.phone||'',
     cat:r.cat||null, type:r.type||null, dur:r.dur!=null?Number(r.dur):null,
+    notes:r.notes||'', providerIds:Array.isArray(r.provider_ids)?r.provider_ids:[],
     coords:(r.lat!=null&&r.lng!=null)?{lat:r.lat,lng:r.lng}:null
+  }));
+  providers = (providersRes && providersRes.data||[]).map(r=>({
+    id:r.id, name:r.name, specialty:r.specialty||'', phone:r.phone||'', npi:r.npi||''
   }));
 
   if(settingsRes.data){
@@ -1943,7 +1974,7 @@ async function upsertSavedPatient(name,addr,coords,cat,type,dur,phone){
   const ph=(phone&&phone.trim())?phone.trim():null;
   const existing=savedPatients.find(p=>p.name.toLowerCase()===name.toLowerCase());
   if(existing){existing.addr=addr;existing.coords=coords;existing.cat=cat??null;existing.type=type??null;existing.dur=dur??null;if(ph)existing.phone=ph;}
-  else savedPatients.push({name,addr,coords,cat:cat??null,type:type??null,dur:dur??null,phone:ph||''});
+  else savedPatients.push({name,addr,coords,cat:cat??null,type:type??null,dur:dur??null,phone:ph||'',notes:'',providerIds:[]});
   const row={
     user_id:currentUser.id, name, addr,
     cat:cat??null, type:type??null, dur:dur??null,
@@ -1951,6 +1982,107 @@ async function upsertSavedPatient(name,addr,coords,cat,type,dur,phone){
   };
   if(ph) row.phone=ph; // only overwrite the stored phone when we actually have one
   await sb.from('saved_patients').upsert(row,{onConflict:'user_id,name'});
+}
+
+// ─── DOCTORS + CLIENT NOTES (reference, not charting) ─────────────────────────
+// Persistent, per-CLIENT reference data kept on saved_patients (notes,
+// provider_ids) plus a shared providers directory. Nothing here duplicates the
+// real EHR — it's a place to call a patient's doctors and glance at notes while
+// charting elsewhere.
+function findPatient(name){
+  return savedPatients.find(p=>p.name.toLowerCase()===(name||'').toLowerCase());
+}
+// Ensure an in-memory saved_patients row exists to hang notes/doctors on, even
+// for a patient who hasn't been saved with an address yet.
+function getOrInitPatient(name){
+  let p=findPatient(name);
+  if(!p){ p={name,addr:'',phone:'',cat:null,type:null,dur:null,notes:'',providerIds:[],coords:null}; savedPatients.push(p); }
+  if(!Array.isArray(p.providerIds)) p.providerIds=[];
+  if(p.notes==null) p.notes='';
+  return p;
+}
+function patientDoctors(name){
+  const p=findPatient(name); if(!p) return [];
+  return p.providerIds.map(id=>providers.find(d=>d.id===id)).filter(Boolean);
+}
+// Save the client's persistent notes. Targeted upsert (name + notes only) so it
+// never clobbers the patient's address/phone/etc.
+async function saveClientNotes(name,notes){
+  const p=getOrInitPatient(name);
+  p.notes=notes;
+  // addr is included (never null; NOT NULL column) so a first-time insert for a
+  // patient not yet saved succeeds; for an existing row it rewrites the same value.
+  await sb.from('saved_patients').upsert(
+    {user_id:currentUser.id, name:p.name, addr:p.addr||'', notes},
+    {onConflict:'user_id,name'}
+  );
+}
+// Insert a provider into the shared directory and return it (with its new id).
+// Dedupes on name+phone so the same office isn't stored twice.
+async function addProvider({name,specialty,phone,npi}){
+  name=(name||'').trim(); if(!name) return null;
+  specialty=(specialty||'').trim(); phone=(phone||'').trim(); npi=(npi||'').trim();
+  const dupe=providers.find(d=>d.name.toLowerCase()===name.toLowerCase() && (d.phone||'')===phone);
+  if(dupe) return dupe;
+  const {data,error}=await sb.from('providers')
+    .insert({user_id:currentUser.id, name, specialty, phone, npi})
+    .select().single();
+  if(error||!data){ showToast('Could not save doctor'); return null; }
+  const rec={id:data.id, name:data.name, specialty:data.specialty||'', phone:data.phone||'', npi:data.npi||''};
+  providers.push(rec);
+  return rec;
+}
+async function linkDoctorToPatient(name,providerId){
+  const p=getOrInitPatient(name);
+  if(p.providerIds.includes(providerId)) return;
+  p.providerIds=[...p.providerIds, providerId];
+  await sb.from('saved_patients').upsert(
+    {user_id:currentUser.id, name:p.name, addr:p.addr||'', provider_ids:p.providerIds},
+    {onConflict:'user_id,name'}
+  );
+}
+async function unlinkDoctorFromPatient(name,providerId){
+  const p=findPatient(name); if(!p) return;
+  p.providerIds=p.providerIds.filter(id=>id!==providerId);
+  await sb.from('saved_patients').upsert(
+    {user_id:currentUser.id, name:p.name, addr:p.addr||'', provider_ids:p.providerIds},
+    {onConflict:'user_id,name'}
+  );
+}
+// Search the national NPI (NPPES) registry via the Netlify proxy (the browser
+// can't call NPPES directly — no CORS). Returns a normalized list. The proxy
+// only exists on the deployed site, so this fails gracefully in its absence.
+async function npiSearch(query){
+  const parts=(query||'').trim().split(/\s+/);
+  if(!parts.length||!parts[0]) return [];
+  // NPPES only allows a trailing wildcard when 2+ chars precede it.
+  const wild=t=>t.length>=2?t+'*':t;
+  // Heuristic: "First Last" → first_name + last_name; a single word → last_name.
+  const params=new URLSearchParams();
+  if(parts.length===1){ params.set('last_name', wild(parts[0])); }
+  else { params.set('first_name', wild(parts[0])); params.set('last_name', wild(parts[parts.length-1])); }
+  params.set('limit','15');
+  const res=await fetch('/.netlify/functions/npi?'+params.toString());
+  if(!res.ok) throw new Error('npi '+res.status);
+  const data=await res.json();
+  return (data.results||[]).map(r=>{
+    const b=r.basic||{};
+    const org=(b.organization_name||'').trim();
+    const person=[b.first_name,b.last_name].filter(Boolean).join(' ').trim();
+    const name=org || person || 'Unknown provider';
+    const tax=(r.taxonomies||[]).find(t=>t.primary)||(r.taxonomies||[])[0]||{};
+    const addrs=r.addresses||[];
+    const loc=addrs.find(a=>a.address_purpose==='LOCATION' && a.telephone_number)
+      || addrs.find(a=>a.telephone_number) || {};
+    const city=[loc.city,loc.state].filter(Boolean).join(', ');
+    return {
+      name: b.credential ? `${name}, ${b.credential}` : name,
+      specialty: (tax.desc||'').trim(),
+      phone: (loc.telephone_number||'').trim(),
+      npi: String(r.number||''),
+      city
+    };
+  }).filter(r=>r.phone); // a doctor with no listed phone isn't useful to call
 }
 // Pre-fill the visit form's category/type/duration from a saved patient's
 // last-used values. Guards against categories/types the user has since deleted
@@ -2509,6 +2641,164 @@ function openQuickText(id){
     }
     if(e.target.closest('a.qt-item')) setTimeout(closeQuickText,300); // let the tel:/sms: link fire first
   });
+}
+
+// ─── PATIENT REFERENCE SHEET (doctors + client notes) ─────────────────────────
+// A per-client "do-it-all" reference: call any of the patient's doctors, and
+// read/dictate persistent notes to glance at while charting elsewhere. Opens
+// from a visit card. All data lives on saved_patients + the providers directory.
+let pdState={name:null, adding:false, query:'', results:null, searching:false, error:''};
+// Read the notes textarea into memory (no network) so a re-render never loses
+// in-progress typing. Network save happens on blur (change) and on close.
+function capturePatientNotes(){
+  if(!pdState.name) return;
+  const ta=document.getElementById('pd-notes');
+  if(ta){ const p=getOrInitPatient(pdState.name); p.notes=ta.value; }
+}
+function closePatientSheet(persist){
+  const el=document.getElementById('pd-backdrop');
+  if(el){
+    capturePatientNotes();
+    const p=findPatient(pdState.name);
+    if(persist && p) saveClientNotes(p.name, p.notes||'');
+    el.remove();
+  }
+  pdState={name:null, adding:false, query:'', results:null, searching:false, error:''};
+}
+function openPatientSheet(name){
+  if(!name) return;
+  closeQuickText();
+  const old=document.getElementById('pd-backdrop'); if(old) old.remove();
+  pdState={name, adding:false, query:'', results:null, searching:false, error:''};
+  const wrap=document.createElement('div');
+  wrap.id='pd-backdrop'; wrap.className='qt-backdrop';
+  document.body.appendChild(wrap);
+  renderPatientSheet();
+  wrap.addEventListener('click', onPatientSheetClick);
+  wrap.addEventListener('input', onPatientSheetInput);
+  wrap.addEventListener('change', onPatientSheetChange);
+  wrap.addEventListener('keydown', onPatientSheetKey);
+}
+function renderPatientSheet(){
+  const wrap=document.getElementById('pd-backdrop'); if(!wrap) return;
+  const name=pdState.name;
+  const p=findPatient(name);
+  const notes=(p&&p.notes)||'';
+  const docs=patientDoctors(name);
+  const docsHtml = docs.length
+    ? docs.map(d=>{
+        const digits=(d.phone||'').replace(/[^\d+]/g,'');
+        const sub=[d.specialty,d.phone].filter(Boolean).join(' · ');
+        return `<div class="pd-doc">
+          <div class="pd-doc-info">
+            <div class="pd-doc-name">${escAttr(d.name)}</div>
+            ${sub?`<div class="pd-doc-sub">${escAttr(sub)}</div>`:''}
+          </div>
+          ${digits?`<a class="pd-call" href="tel:${digits}">📞</a>`:''}
+          <button class="pd-unlink" data-pd-unlink="${d.id}" aria-label="Remove doctor">✕</button>
+        </div>`;
+      }).join('')
+    : `<div class="pd-empty">No doctors linked yet — add one to call with a tap.</div>`;
+
+  let addHtml='';
+  if(pdState.adding){
+    let resultsHtml='';
+    if(pdState.searching) resultsHtml=`<div class="pd-note">Searching the national NPI registry…</div>`;
+    else if(pdState.error) resultsHtml=`<div class="pd-note">${escAttr(pdState.error)}</div>`;
+    else if(pdState.results){
+      resultsHtml = pdState.results.length
+        ? pdState.results.map((r,i)=>`<button class="pd-result" data-pd-pick="${i}">
+            <div class="pd-doc-name">${escAttr(r.name)}</div>
+            <div class="pd-doc-sub">${escAttr([r.specialty,r.city,r.phone].filter(Boolean).join(' · '))}</div>
+          </button>`).join('')
+        : `<div class="pd-note">No matches with a listed phone. Add by hand below.</div>`;
+    }
+    addHtml=`<div class="pd-add">
+      <div class="pd-add-row">
+        <input class="form-input pd-input" id="pd-search" placeholder="Doctor or practice name…" value="${escAttr(pdState.query||'')}" autocomplete="off">
+        <button class="pd-btn" data-pd-do-search="1">🔎 Search</button>
+      </div>
+      ${resultsHtml}
+      <div class="pd-manual-lbl">or add by hand</div>
+      <div class="pd-add-row">
+        <input class="form-input pd-input pd-grow" id="pd-man-name" placeholder="Doctor / office name" autocomplete="off">
+        <input class="form-input pd-input" id="pd-man-phone" type="tel" inputmode="tel" placeholder="Phone" autocomplete="off">
+        <button class="pd-btn" data-pd-manual="1">Add</button>
+      </div>
+    </div>`;
+  }
+
+  wrap.innerHTML=`<div class="qt-sheet pd-sheet" role="dialog" aria-label="${escAttr(name)} reference">
+    <div class="qt-head"><div class="qt-name">${escAttr(name)}</div><div class="qt-phone">Doctors &amp; notes</div></div>
+    <div class="pd-section-lbl">📇 Doctors</div>
+    ${docsHtml}
+    ${pdState.adding?'':`<button class="pd-add-toggle" data-pd-add="1">＋ Add doctor</button>`}
+    ${addHtml}
+    <div class="pd-section-lbl">📝 Notes <span class="pd-hint">— dictate with your keyboard mic</span></div>
+    <textarea class="pd-notes" id="pd-notes" placeholder="Anything to remember for this client (reference only — not charting)">${escAttr(notes)}</textarea>
+    <button class="qt-item qt-cancel" data-pd-close="1">Done</button>
+  </div>`;
+}
+async function runNpiSearch(){
+  capturePatientNotes();
+  const inp=document.getElementById('pd-search');
+  if(inp) pdState.query=inp.value;
+  if(!(pdState.query||'').trim()){ pdState.error='Type a name to search.'; pdState.results=null; renderPatientSheet(); return; }
+  pdState.searching=true; pdState.error=''; pdState.results=null;
+  renderPatientSheet();
+  try{
+    pdState.results=await npiSearch(pdState.query);
+    pdState.error='';
+  }catch(e){
+    pdState.results=null;
+    pdState.error='Lookup unavailable right now — add the doctor by hand below.';
+  }
+  pdState.searching=false;
+  renderPatientSheet();
+}
+function onPatientSheetClick(e){
+  const wrap=document.getElementById('pd-backdrop');
+  if(e.target===wrap){ closePatientSheet(true); return; }
+  if(e.target.closest('[data-pd-close]')){ closePatientSheet(true); return; }
+  if(e.target.closest('a.pd-call')) return; // let tel: fire, keep sheet open
+  const addBtn=e.target.closest('[data-pd-add]');
+  if(addBtn){ capturePatientNotes(); pdState.adding=true; pdState.results=null; pdState.error=''; renderPatientSheet();
+    const s=document.getElementById('pd-search'); if(s) s.focus(); return; }
+  if(e.target.closest('[data-pd-do-search]')){ runNpiSearch(); return; }
+  const pick=e.target.closest('[data-pd-pick]');
+  if(pick){
+    const r=(pdState.results||[])[parseInt(pick.getAttribute('data-pd-pick'))];
+    if(r) addDoctorFromSheet(r);
+    return;
+  }
+  if(e.target.closest('[data-pd-manual]')){
+    const nm=document.getElementById('pd-man-name'), ph=document.getElementById('pd-man-phone');
+    const name=(nm&&nm.value||'').trim(), phone=(ph&&ph.value||'').trim();
+    if(!name){ showToast('Enter a doctor or office name'); return; }
+    addDoctorFromSheet({name, specialty:'', phone, npi:''});
+    return;
+  }
+  const unlink=e.target.closest('[data-pd-unlink]');
+  if(unlink){ capturePatientNotes(); unlinkDoctorFromPatient(pdState.name, parseInt(unlink.getAttribute('data-pd-unlink'))).then(renderPatientSheet); return; }
+}
+async function addDoctorFromSheet(r){
+  capturePatientNotes();
+  const rec=await addProvider(r);
+  if(!rec) return;
+  await linkDoctorToPatient(pdState.name, rec.id);
+  pdState.adding=false; pdState.results=null; pdState.query=''; pdState.error='';
+  renderPatientSheet();
+  showToast('Doctor added');
+}
+function onPatientSheetInput(e){
+  if(e.target.id==='pd-search'){ pdState.query=e.target.value; }
+  else if(e.target.id==='pd-notes'){ const p=getOrInitPatient(pdState.name); p.notes=e.target.value; }
+}
+function onPatientSheetChange(e){
+  if(e.target.id==='pd-notes'){ saveClientNotes(pdState.name, e.target.value); }
+}
+function onPatientSheetKey(e){
+  if(e.target.id==='pd-search' && e.key==='Enter'){ e.preventDefault(); runNpiSearch(); }
 }
 // ─── DRIVE MODE ───────────────────────────────────────────────────────────────
 // Full-screen, one-stop-at-a-time view for hands-free use on the road. Steps
@@ -3169,6 +3459,7 @@ function renderList(){
         <button class="card-action-btn btn-done-act" data-action="done" data-id="${v.id}">${v.status==='done'?'Undo':'Done'}</button>
         <button class="card-action-btn" data-action="skip" data-id="${v.id}">${v.status==='skipped'?'Unskip':'Skip'}</button>
         ${v.phone?`<button class="card-action-btn btn-text-act" data-action="text" data-id="${v.id}">💬 Text</button>`:''}
+        <button class="card-action-btn btn-ref-act" data-action="patient" data-id="${v.id}" title="Doctors & notes" aria-label="Doctors and notes">🩺</button>
         <button class="card-action-btn btn-nav-act" data-action="nav" data-id="${v.id}">Navigate</button>
         <button class="card-action-btn" style="color:var(--accent-mid)" data-action="edit" data-id="${v.id}">Edit</button>
         <button class="card-action-btn btn-del-act" data-action="delete" data-id="${v.id}">Delete</button>

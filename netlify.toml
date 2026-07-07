@@ -6,3 +6,45 @@
 
 [functions]
   directory = "netlify/functions"
+
+# publish = "." serves the whole repo root, which would otherwise expose repo
+# internals as public URLs (DB schema + RLS policy names, planning docs, the
+# function source, collaborator details in CLAUDE.md). Block those paths with a
+# forced 404 (force = true is required to override real files that exist on disk).
+# The app only ever serves index.html, manifest.json, and /.netlify/functions/*,
+# none of which match these rules.
+[[redirects]]
+  from = "/supabase/*"
+  to = "/index.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/netlify/*"
+  to = "/index.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/*.sql"
+  to = "/index.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/*.md"
+  to = "/index.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/package.json"
+  to = "/index.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/package-lock.json"
+  to = "/index.html"
+  status = 404
+  force = true

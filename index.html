@@ -1566,10 +1566,10 @@ function forgotPin(){
 // option (e.g. to keep an offline copy, or move data into a fresh account).
 function downloadBackup(){
   const backup={
-    _roundlyBackupVersion:2,
+    _roundlyBackupVersion:3,
     exportedAt:new Date().toISOString(),
     account:currentUser?.email||null,
-    visits,extraPoints,savedPatients,
+    visits,extraPoints,savedPatients,providers,
     homeCoords,catPoints,weeklyTarget,themeMode,accentId,payMode,catPay
   };
   const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
@@ -1606,13 +1606,38 @@ async function restoreBackup(evt){
         const rows=data.extraPoints.map(e=>({user_id:uid,label:e.label,date:e.date,pts:e.pts}));
         await sb.from('extra_points').insert(rows);
       }
+      // Rebuild the doctor directory first, mapping each backup provider id to the
+      // id it lands on in this account. providers.id is a DB identity value, so it
+      // can't be preserved across accounts — reuse an existing name+phone match
+      // (so a re-restore doesn't duplicate the directory) or insert a fresh row,
+      // then remap each patient's provider_ids onto the new ids below.
+      const provIdMap={};
+      if(Array.isArray(data.providers)){
+        for(const d of data.providers){
+          const nm=(d.name||'').trim(); if(!nm) continue;
+          const ph=(d.phone||'').trim();
+          let match=providers.find(x=>x.name.toLowerCase()===nm.toLowerCase() && (x.phone||'')===ph);
+          if(!match){
+            const {data:ins}=await sb.from('providers')
+              .insert({user_id:uid, name:nm, specialty:(d.specialty||'').trim(), phone:ph, npi:(d.npi||'').trim()})
+              .select().single();
+            if(ins){ match={id:ins.id,name:ins.name,specialty:ins.specialty||'',phone:ins.phone||'',npi:ins.npi||''}; providers.push(match); }
+          }
+          if(match && d.id!=null) provIdMap[d.id]=match.id;
+        }
+      }
       if(data.savedPatients?.length){
         for(const p of data.savedPatients){
-          await sb.from('saved_patients').upsert({
+          const row={
             user_id:uid, name:p.name, addr:p.addr, phone:p.phone??null,
             cat:p.cat??null, type:p.type??null, dur:p.dur??null,
             lat:p.coords?.lat??null, lng:p.coords?.lng??null
-          },{onConflict:'user_id,name'});
+          };
+          // Only touch notes/links when the backup actually carries them, so an
+          // older (pre-v3) backup can't wipe notes/doctors already in this account.
+          if(p.notes!=null) row.notes=p.notes;
+          if(Array.isArray(p.providerIds)) row.provider_ids=p.providerIds.map(id=>provIdMap[id]).filter(v=>v!=null);
+          await sb.from('saved_patients').upsert(row,{onConflict:'user_id,name'});
         }
       }
       // Restore pay settings so PPV mode + per-category rates survive a restore
@@ -1732,6 +1757,15 @@ function newVisitForPatient(name){
   applyPatientDefaults(p);
 }
 async function removeSavedPatient(name){
+  // This row now also holds the client's persistent notes and linked doctors, so
+  // a delete here isn't just pruning autocomplete history — warn when it would
+  // take clinical reference data with it (there's no undo).
+  const p=savedPatients.find(x=>x.name===name);
+  const hasData=p && (((p.notes||'').trim()) || (Array.isArray(p.providerIds)&&p.providerIds.length));
+  const msg=hasData
+    ? `Remove ${name}? This also deletes their saved notes and linked doctors, and can't be undone.`
+    : `Remove ${name} from saved patients?`;
+  if(!confirm(msg)) return;
   savedPatients=savedPatients.filter(p=>p.name!==name);
   await sb.from('saved_patients').delete().eq('user_id',currentUser.id).eq('name',name);
   renderSavedPatientsArea();

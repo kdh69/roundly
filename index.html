@@ -583,6 +583,17 @@ body.hide-fabs .fab,body.hide-fabs .fab-quick,body.hide-fabs .fab-extra{display:
 .qt-item:active{filter:brightness(0.96)}
 .qt-call{background:var(--teal-bg);color:var(--teal)}
 .qt-cancel{background:transparent;color:var(--text-muted);font-weight:600}
+.tag-eta{background:var(--blue-bg);color:var(--blue)}
+.pd-hist{background:var(--gray-50);border-radius:var(--radius-md);padding:4px 12px;margin-bottom:4px}
+.pd-hist-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:6px 0;border-bottom:1px solid var(--gray-100);color:var(--text)}
+.pd-hist-row:last-child{border-bottom:none}
+.pd-hist-st{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:var(--amber-bg);color:var(--amber)}
+.pd-hist-st.st-done{background:var(--teal-bg);color:var(--teal)}
+.pd-hist-st.st-confirmed{background:var(--blue-bg);color:var(--blue)}
+.pd-hist-st.st-skipped{background:var(--gray-100);color:var(--gray-600)}
+.day-projection{font-size:12px;font-weight:600;color:var(--text-muted);padding:4px 14px 8px;text-align:center}
+.dm-arrive{display:flex;align-items:center;justify-content:center;gap:10px;background:var(--teal-bg);color:var(--teal);font-weight:700;font-size:14px;border-radius:var(--radius-md);padding:10px;margin-top:10px}
+.dm-arrive-btn{border:none;background:var(--teal);color:white;font-weight:700;font-size:13px;padding:8px 14px;border-radius:20px;cursor:pointer}
 .qt-custom-row{display:flex;gap:8px;margin-top:8px}
 .qt-custom-row .form-input{flex:1}
 .qt-send{border:none;background:var(--accent-grad);color:white;font-weight:700;font-size:14px;padding:0 18px;border-radius:var(--radius-md);cursor:pointer}
@@ -1036,6 +1047,15 @@ body.hide-fabs .fab,body.hide-fabs .fab-quick,body.hide-fabs .fab-extra{display:
     </div>
   </div>
 
+  <div class="settings-section">
+    <div class="settings-section-title">Mileage rate (optional)</div>
+    <div class="setting-target-row">
+      <label>$ per mile reimbursed</label>
+      <input type="number" class="setting-target-input" id="s-mile-rate" min="0" max="10" step="0.01" placeholder="0.70">
+    </div>
+    <div class="backup-note">Adds an estimated reimbursement line to the day Summary and the monthly mileage log. Stored on this device.</div>
+  </div>
+
   <div class="settings-section" id="settings-pay-section" style="display:none">
     <div class="settings-section-title">Pay per visit category ($)</div>
     <div id="settings-pay-rows"><!-- built by buildSettingsRows() --></div>
@@ -1370,6 +1390,7 @@ function handleListClick(e){
   const btn = e.target.closest('[data-action]');
   if(!btn) return;
   const action = btn.getAttribute('data-action');
+  if(action==='rollover'){ rolloverYesterday(); return; } // no visit id on this one
   const id = parseInt(btn.getAttribute('data-id'));
   if(!id) return;
   if(action==='done') markDone(id);
@@ -2012,6 +2033,7 @@ async function signOutOfApp(){
 // ─── SETTINGS PANEL ───────────────────────────────────────────────────────────
 function buildSettingsRows(){
   document.getElementById('s-weekly-target').value=weeklyTarget;
+  document.getElementById('s-mile-rate').value=mileageRate()||'';
   const container=document.getElementById('settings-pts-rows');
   container.innerHTML=Object.keys(catPoints).map(k=>{
     const isCustom=!!customCats[k];
@@ -2097,6 +2119,8 @@ async function removeSavedPatient(name){
 async function saveSettings(){
   const wt=parseFloat(document.getElementById('s-weekly-target').value);
   if(!isNaN(wt)&&wt>0) weeklyTarget=wt;
+  const mr=parseFloat(document.getElementById('s-mile-rate').value);
+  saveLocalPref('roundlyMileRate',(!isNaN(mr)&&mr>0)?String(mr):'');
   Object.keys(catPoints).forEach(k=>{
     const v=parseFloat(document.getElementById('spt-'+k)?.value);
     if(!isNaN(v)&&v>=0){ catPoints[k]=v; if(customCats[k]) customCats[k].points=v; }
@@ -2279,6 +2303,7 @@ async function osrmRoute(coordList){
     const result={
       miles: route.distance/1609.344,
       legMiles: (route.legs||[]).map(l=>l.distance/1609.344),
+      legSecs: (route.legs||[]).map(l=>l.duration), // drive time per leg — powers ETAs
       geometry: (route.geometry?.coordinates||[]).map(([lng,lat])=>[lat,lng])
     };
     if(osrmCache.size>60) osrmCache.delete(osrmCache.keys().next().value);
@@ -2322,6 +2347,53 @@ async function refreshRoadRoute(){
     if(driveIsOpen())renderDriveMode(); // Drive Mode shows leg miles too
   }
 }
+// ─── ETAs ─────────────────────────────────────────────────────────────────────
+// Projected arrival time per remaining stop + a "done by ~" finish time.
+// OSRM leg durations when available; otherwise straight-line distance at a
+// suburban average with a road-wiggle factor. Always presented with "~".
+const ETA_AVG_MPH=26, ETA_ROAD_FACTOR=1.3, ETA_UNPINNED_SECS=8*60;
+function computeEtas(dateStr){
+  const route=drivingVisits(dateStr);
+  if(!route.length) return {etas:{},finish:null};
+  const rd=(dateStr===listSelectedDate)?roadData():null;
+  const pinned=route.filter(v=>v.coords);
+  const legSecOf=(v)=>{
+    const ri=pinned.findIndex(x=>x.id===v.id);
+    if(ri<0) return ETA_UNPINNED_SECS;
+    if(rd&&rd.legSecs&&rd.legSecs[ri]!=null) return rd.legSecs[ri];
+    const from=ri===0?homeCoords:pinned[ri-1].coords;
+    return haversine(from,v.coords)/ETA_AVG_MPH*3600*ETA_ROAD_FACTOR;
+  };
+  // The remaining day starts NOW (today) or at the first appointment time.
+  let cursor;
+  if(dateStr===todayStr()) cursor=Date.now();
+  else cursor=new Date(dateStr+'T'+(route[0].time||'09:00')+':00').getTime();
+  const etas={};
+  for(const v of route){
+    if(v.status==='done') continue;
+    let eta=cursor+legSecOf(v)*1000;
+    // Arriving before the appointment means waiting for it.
+    if(v.time){
+      const appt=new Date(v.date+'T'+v.time+':00').getTime();
+      if(appt>eta) eta=appt;
+    }
+    etas[v.id]=eta;
+    cursor=eta+(Number(v.dur)||30)*60000;
+  }
+  // Finish = back home after the last remaining stop.
+  let finish=null;
+  const remaining=route.filter(v=>v.status!=='done');
+  if(remaining.length){
+    const last=remaining[remaining.length-1];
+    const backSecs=last.coords?haversine(last.coords,homeCoords)/ETA_AVG_MPH*3600*ETA_ROAD_FACTOR:ETA_UNPINNED_SECS;
+    finish=cursor+backSecs*1000;
+  }
+  return {etas,finish};
+}
+function fmtClock(ms){
+  return new Date(ms).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+}
+
 // Miles for the leg ENDING at visit v (from home or the previous pinned stop),
 // in the day's driving order. Road distance when available, haversine estimate
 // otherwise. Returns {miles, fromBase} or null for unpinned visits.
@@ -3071,7 +3143,12 @@ function openQuickText(id){
   wrap.innerHTML=`<div class="qt-sheet" role="dialog" aria-label="Text ${escAttr(v.name)}">
     <div class="qt-head"><div class="qt-name">${escAttr(v.name)}</div><div class="qt-phone">${escAttr(phone)}</div></div>
     <a class="qt-item qt-call" href="tel:${digits}">📞 Call</a>
-    ${QUICK_TEXT_PRESETS.map(m=>`<a class="qt-item" href="${smsHref(phone,m)}">💬 ${escAttr(m)}</a>`).join('')}
+    ${(()=>{ // ETA-aware preset first when we can project an arrival time
+      const qp=[...QUICK_TEXT_PRESETS];
+      const qe=computeEtas(v.date).etas[v.id];
+      if(qe) qp.unshift(`On my way — should be there around ${fmtClock(qe)}.`);
+      return qp.map(m=>`<a class="qt-item" href="${smsHref(phone,m)}">💬 ${escAttr(m)}</a>`).join('');
+    })()}
     <div class="qt-custom-row">
       <input class="form-input" id="qt-custom-input" placeholder="Custom message…" autocomplete="off" enterkeyhint="send">
       <button class="qt-send" data-qt-send="1">Send</button>
@@ -3188,6 +3265,14 @@ function renderPatientSheet(){
     ${docsHtml}
     ${pdState.adding?'':`<button class="pd-add-toggle" data-pd-add="1">＋ Add doctor</button>`}
     ${addHtml}
+    ${(()=>{ // visit history — cadence at a glance, the EMR per-patient view
+      const hist=visits.filter(x=>x.name.toLowerCase()===name.toLowerCase())
+        .sort((a,b)=>b.date.localeCompare(a.date)||b.time.localeCompare(a.time));
+      if(!hist.length) return '';
+      const rows=hist.slice(0,6).map(h=>`<div class="pd-hist-row"><span>${getDayLabel(h.date)}${h.date===todayStr()?' · today':''}</span><span class="pd-hist-st st-${h.status}">${h.status}</span></div>`).join('');
+      const more=hist.length>6?`<div class="pd-hist-row" style="color:var(--text-muted)">+ ${hist.length-6} more</div>`:'';
+      return `<div class="pd-section-lbl">📅 Visit history (${hist.length})</div><div class="pd-hist">${rows}${more}</div>`;
+    })()}
     <div class="pd-section-lbl">📝 Notes <span class="pd-hint">— dictate with your keyboard mic</span> <span id="pd-save-state" class="pd-hint"></span></div>
     <textarea class="pd-notes" id="pd-notes" placeholder="Anything to remember for this client (reference only — not charting)">${escAttr(notes)}</textarea>
     <button class="qt-item qt-cancel" data-pd-close="1">Done</button>
@@ -3281,6 +3366,32 @@ function releaseWakeLock(){
 document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='visible' && driveIsOpen()) acquireWakeLock();
 });
+// Arrival detection: while Drive Mode is open (screen on, wake lock held —
+// the only window a PWA gets GPS), watch position and surface an "arrived —
+// mark done?" bar when within ~90m of the current stop. Silently absent if
+// location permission is denied.
+let driveWatchId=null, driveArrivedFor=null;
+function startDriveWatch(){
+  if(!('geolocation' in navigator)||driveWatchId!=null) return;
+  try{
+    driveWatchId=navigator.geolocation.watchPosition(onDrivePos,()=>{},{enableHighAccuracy:true,maximumAge:15000,timeout:20000});
+  }catch(e){}
+}
+function stopDriveWatch(){
+  if(driveWatchId!=null){ try{navigator.geolocation.clearWatch(driveWatchId);}catch(e){} driveWatchId=null; }
+  driveArrivedFor=null;
+}
+function onDrivePos(pos){
+  if(!driveIsOpen()) return;
+  const v=driveCurrent();
+  if(!v||!v.coords||v.status==='done') return;
+  const here={lat:pos.coords.latitude,lng:pos.coords.longitude};
+  const meters=haversine(here,v.coords)*1609.344;
+  if(meters<=90 && driveArrivedFor!==v.id){
+    driveArrivedFor=v.id;
+    renderDriveMode();
+  }
+}
 function driveIsOpen(){return document.getElementById('drive-mode').classList.contains('open');}
 function driveRoute(){return drivingVisits(driveDate||listSelectedDate);}
 function driveCurrent(){return driveRoute()[driveIndex]||null;}
@@ -3294,6 +3405,7 @@ function enterDriveMode(){
   dm.classList.add('open');dm.setAttribute('aria-hidden','false');
   document.body.style.overflow='hidden';
   acquireWakeLock();
+  startDriveWatch();
   renderDriveMode();
 }
 function exitDriveMode(){
@@ -3301,6 +3413,7 @@ function exitDriveMode(){
   dm.classList.remove('open');dm.setAttribute('aria-hidden','true');
   document.body.style.overflow='';
   releaseWakeLock();
+  stopDriveWatch();
 }
 function driveGo(delta){
   const len=driveRoute().length;
@@ -3340,6 +3453,8 @@ function renderDriveMode(){
   const st=DM_STATUS[v.status]||DM_STATUS.pending;
   const chips=[v.time, v.dur+'m', escAttr(CAT_LABELS[v.cat]||v.cat), escAttr(TYPE_LABELS[v.type]||v.type)];
   if(miles) chips.push('🚗 '+miles);
+  const dmProj=computeEtas(driveDate||listSelectedDate);
+  if(dmProj.etas[v.id]) chips.push('ETA ~'+fmtClock(dmProj.etas[v.id]));
   if(isPPV()) chips.push(fmtMoney(getPay(v)));
   const hasPhone=!!(v.phone&&v.phone.trim());
   const progLbl=remaining===0
@@ -3363,6 +3478,7 @@ function renderDriveMode(){
         <div class="dm-name">${escAttr(v.name)}</div>
         <div class="dm-addr" onclick="driveAction('nav')">${escAttr(v.addr)}</div>
         <div class="dm-chips">${chips.map(c=>`<span class="dm-chip">${c}</span>`).join('')}</div>
+        ${driveArrivedFor===v.id&&v.status!=='done'?`<div class="dm-arrive">📍 Looks like you've arrived <button class="dm-arrive-btn" onclick="driveAction('done')">✓ Mark done</button></div>`:''}
         ${v.notes?`<div class="dm-notes">💬 ${escAttr(v.notes)}</div>`:''}
         <div class="dm-actions">
           <button class="dm-nav-btn" onclick="driveAction('nav')">🧭 Navigate${miles?' · '+miles:''}</button>
@@ -3394,6 +3510,64 @@ async function renumberDay(date){
     const {error}=await sb.from('visits').update({num:sv.num}).eq('id',sv.id).eq('user_id',currentUser.id);
     if(error) queueWrite({kind:'visit-update',id:sv.id,payload:{num:sv.num}});
   }
+}
+// Move yesterday's unfinished (pending/confirmed) visits to today, appended
+// after today's existing stops. Offline-safe: failures queue in the outbox.
+async function rolloverYesterday(){
+  const yd=toDateStr(new Date(Date.now()-86400000));
+  const today=todayStr();
+  const leftover=visits.filter(v=>v.date===yd&&(v.status==='pending'||v.status==='confirmed'));
+  if(!leftover.length) return;
+  for(const v of leftover){
+    const num=visits.filter(x=>x.date===today).length+1;
+    const {error}=await sb.from('visits').update({date:today,num}).eq('id',v.id).eq('user_id',currentUser.id);
+    if(error) queueWrite({kind:'visit-update',id:v.id,payload:{date:today,num}});
+    v.date=today; v.num=num;
+  }
+  renderAll();
+  showToast(`📆 Moved ${leftover.length} visit${leftover.length>1?'s':''} to today`);
+}
+// Duplicate a day's (non-skipped) visits onto another date as fresh pending
+// visits — home health recurs weekly, so the default target is +7 days.
+function openCopyDay(){
+  const src=listSelectedDate;
+  const stops=drivingVisits(src);
+  if(!stops.length){showToast('No visits to copy on this day');return;}
+  const old=document.getElementById('cd-backdrop'); if(old) old.remove();
+  const dflt=toDateStr(new Date(new Date(src+'T12:00:00').getTime()+7*86400000));
+  const wrap=document.createElement('div');
+  wrap.id='cd-backdrop';wrap.className='qt-backdrop';
+  wrap.innerHTML=`<div class="qt-sheet" role="dialog" aria-label="Copy day">
+    <div class="qt-head"><div class="qt-name">Copy ${getDayLabel(src)}</div><div class="qt-phone">${stops.length} visit${stops.length>1?'s':''} → new date, all pending</div></div>
+    <input type="date" class="form-input" id="cd-date" value="${dflt}" style="margin-top:8px">
+    <button class="qt-item" data-cd-go="1" style="background:var(--accent-grad);color:white">📋 Copy visits</button>
+    <button class="qt-item qt-cancel" data-cd-cancel="1">Cancel</button>
+  </div>`;
+  document.body.appendChild(wrap);
+  wrap.addEventListener('click',async e=>{
+    if(e.target===wrap||e.target.hasAttribute('data-cd-cancel')){wrap.remove();return;}
+    if(!e.target.hasAttribute('data-cd-go')) return;
+    const target=document.getElementById('cd-date').value;
+    if(!target||target===src){showToast('Pick a different date');return;}
+    e.target.disabled=true; e.target.textContent='Copying…';
+    const base=visits.filter(x=>x.date===target).length;
+    const rows=stops.map((v,i)=>({
+      user_id:currentUser.id, num:base+i+1, name:v.name, addr:v.addr, date:target, time:v.time,
+      dur:v.dur, type:v.type, cat:v.cat, notes:v.notes||'', status:'pending', phone:v.phone||'',
+      pay:v.pay??null, needs_details:false, lat:v.coords?.lat??null, lng:v.coords?.lng??null
+    }));
+    const {data,error}=await sb.from('visits').insert(rows).select();
+    if(error||!data){showToast('⚠️ Could not copy — check connection');e.target.disabled=false;e.target.textContent='📋 Copy visits';return;}
+    data.forEach(r=>visits.push({
+      id:r.id, num:r.num, name:r.name, addr:r.addr, date:r.date, time:r.time, dur:r.dur,
+      type:r.type, cat:r.cat, notes:r.notes||'', status:r.status, phone:r.phone||'',
+      pay:r.pay!=null?Number(r.pay):null, needsDetails:!!r.needs_details,
+      coords:(r.lat!=null&&r.lng!=null)?{lat:r.lat,lng:r.lng}:null
+    }));
+    wrap.remove();
+    listSelectedDate=target; mapNeedsFit=true; updateDateStripLabel(); renderAll();
+    showToast(`📋 Copied ${data.length} visit${data.length>1?'s':''} to ${getDayLabel(target)}`);
+  });
 }
 async function deleteVisit(id){
   const v=visits.find(x=>x.id===id);
@@ -3516,6 +3690,28 @@ function shiftListDate(dir){
   updateDateStripLabel();renderAll();
 }
 function goToToday(){listSelectedDate=todayStr();mapNeedsFit=true;updateDateStripLabel();renderAll();}
+// ─── WEATHER (Open-Meteo — free, keyless) ─────────────────────────────────────
+const wxCache={}; // dateStr → Promise<{hi,precip,code}|null> (session cache)
+function fetchWeather(dateStr){
+  if(!wxCache[dateStr]){
+    wxCache[dateStr]=(async()=>{
+      try{
+        const u=`https://api.open-meteo.com/v1/forecast?latitude=${homeCoords.lat}&longitude=${homeCoords.lng}&daily=temperature_2m_max,precipitation_probability_max,weather_code&temperature_unit=fahrenheit&timezone=auto&start_date=${dateStr}&end_date=${dateStr}`;
+        const r=await fetch(u); if(!r.ok) return null;
+        const d=(await r.json())?.daily;
+        if(!d||!d.time||!d.time.length) return null;
+        return {hi:Math.round(d.temperature_2m_max[0]),
+                precip:d.precipitation_probability_max?d.precipitation_probability_max[0]:null,
+                code:d.weather_code?d.weather_code[0]:0};
+      }catch(e){ return null; }
+    })();
+  }
+  return wxCache[dateStr];
+}
+function wxIcon(c){
+  if(c>=95)return '⛈'; if((c>=71&&c<=77)||c===85||c===86)return '❄️';
+  if(c>=51)return '🌧'; if(c>=45)return '🌫'; if(c>=2)return '⛅'; return '☀️';
+}
 function updateDateStripLabel(){
   const isToday=listSelectedDate===todayStr();
   const d=new Date(listSelectedDate+'T12:00:00');
@@ -3524,6 +3720,18 @@ function updateDateStripLabel(){
   document.getElementById('date-strip-today-btn').style.display=isToday?'none':'inline-block';
   // The Map view has its own copy of the date strip — keep it in sync
   document.getElementById('map-date-label').textContent=label;
+  // Weather for the viewed day (Open-Meteo forecast window: today..+15d) —
+  // rain/heat matters when the day is spent walking up driveways.
+  const wds=listSelectedDate;
+  const ahead=(new Date(wds+'T12:00:00')-new Date())/86400000;
+  if(ahead>=-0.7&&ahead<=15){
+    fetchWeather(wds).then(w=>{
+      if(!w||listSelectedDate!==wds) return; // stale response or fetch failed
+      const wx=` · ${wxIcon(w.code)} ${w.hi}°${w.precip!=null&&w.precip>=25?` ${w.precip}%💧`:''}`;
+      document.getElementById('date-strip-label').textContent=label+wx;
+      document.getElementById('map-date-label').textContent=label+wx;
+    });
+  }
   document.getElementById('map-date-today-btn').style.display=isToday?'none':'inline-block';
 }
 
@@ -3597,14 +3805,15 @@ function calcDayPoints(dateStr){
 // 2-opt improvement pass: keep reversing route segments while doing so
 // shortens the round trip. Cleans up the crossings a greedy nearest-neighbor
 // route leaves behind; instant at a normal day's visit count.
-function twoOptImprove(order){
+function twoOptImprove(order,start){
+  start=start||homeCoords;
   if(order.length<3) return order;
   let improved=true;
   while(improved){
     improved=false;
     for(let i=0;i<order.length-1;i++){
       for(let j=i+1;j<order.length;j++){
-        const a=i===0?homeCoords:order[i-1].coords;
+        const a=i===0?start:order[i-1].coords;
         const b=order[i].coords, c=order[j].coords;
         const d=(j===order.length-1)?homeCoords:order[j+1].coords;
         if(haversine(a,c)+haversine(b,d) < haversine(a,b)+haversine(c,d)-1e-9){
@@ -3624,18 +3833,25 @@ async function optimizeRoute(){
   // park them at the end of the day's numbering.
   const skippedToday=today.filter(v=>v.status==='skipped');
   today=today.filter(v=>v.status!=='skipped');
-  if(today.length<2){showToast('Add more visits to optimize');return;}
-  let rem=[...today],order=[],cur=homeCoords;
+  // Mid-day re-optimize: completed stops are history — freeze them in their
+  // current driving order and optimize only what's left, anchored at the
+  // LAST completed stop (where the car actually is), not home.
+  const doneOrdered=drivingVisits(ld).filter(v=>v.status==='done');
+  const todo=today.filter(v=>v.status!=='done');
+  if(todo.length<2){showToast(doneOrdered.length?'Nothing left to optimize':'Add more visits to optimize');return;}
+  const lastDone=doneOrdered.length?doneOrdered[doneOrdered.length-1]:null;
+  const startAt=(lastDone&&lastDone.coords)?lastDone.coords:homeCoords;
+  let rem=[...todo],order=[],cur=startAt;
   while(rem.length){
     let best=null,bd=Infinity;
     for(const v of rem){if(!v.coords)continue;const dist=haversine(cur,v.coords);if(dist<bd){bd=dist;best=v;}}
     if(!best)break;order.push(best);rem=rem.filter(v=>v.id!==best.id);cur=best.coords;
   }
-  order=twoOptImprove(order);
+  order=twoOptImprove(order,startAt);
   // Visits without a map pin can't be routed — keep them at the END of the
   // order instead of silently dropping them from the local list.
   const unpinned=rem;
-  order=order.concat(unpinned).concat(skippedToday);
+  order=doneOrdered.concat(order).concat(unpinned).concat(skippedToday);
   // From now on this day's driving order follows the optimized numbering
   // (routeVisits checks this flag; device-local preference).
   optimizedDates[ld]=true;
@@ -3647,9 +3863,10 @@ async function optimizeRoute(){
   setSort('num'); // show the driving order in the list (also re-renders)
   const savedMi=estSavedMiles(ld);
   const savedTxt=savedMi>=0.1?` · saving ~${savedMi.toFixed(1)} mi`:'';
+  const what=doneOrdered.length?'Remaining stops optimized from your last visit':'Route optimized';
   showToast(unpinned.length
-    ? `⚡ Route optimized${savedTxt} — ${unpinned.length} visit${unpinned.length>1?'s':''} without a pin kept at end`
-    : `⚡ Route optimized${savedTxt}!`);
+    ? `⚡ ${what}${savedTxt} — ${unpinned.length} visit${unpinned.length>1?'s':''} without a pin kept at end`
+    : `⚡ ${what}${savedTxt}!`);
   let syncFailed=false;
   for(const v of reordered){
     const {error}=await sb.from('visits').update({num:v.num}).eq('id',v.id).eq('user_id',currentUser.id);
@@ -3895,6 +4112,7 @@ function renderList(){
       : `<div class="empty-state tap" onclick="openAddPanel()" title="Add a visit"><div class="empty-icon">🗓️</div><p>No visits for ${isToday?'today':'this day'}.<br>Tap <strong>+</strong> to add a patient.</p></div>`;
     return;
   }
+  const proj=computeEtas(listSelectedDate); // ~arrival per remaining stop + finish
   // Leg distances come from the ROUTE order (driving order), not the display
   // sort, so the "🚗 x mi" chips stay truthful whatever sort is active.
   const legOf=(v)=>{
@@ -3919,6 +4137,7 @@ function renderList(){
         if(isPPV()) chipItems.push({t:fmtMoney(getPay(next))});
       }
       if(nd) chipItems.push({t:nd});
+      if(proj.etas[next.id]) chipItems.push({t:'ETA ~'+fmtClock(proj.etas[next.id])});
       const chips=chipItems.map(c=>`<span class="nsh-chip ${c.cls||''}">${c.t}</span>`).join('');
       heroHtml=`<div class="next-stop-hero">
         <div class="nsh-label">Next stop · #${visitNumber(next)}</div>
@@ -3942,14 +4161,28 @@ function renderList(){
   const nudgeHtml = incomplete.length
     ? `<div class="details-nudge" data-action="edit" data-id="${incomplete[0].id}">⚠ ${incomplete.length} visit${incomplete.length>1?'s':''} need details — tap to complete</div>`
     : '';
+  // Gentle rollover: yesterday's unfinished visits offered to move to today —
+  // no red, no guilt, one tap (Things-3 style).
+  let rollHtml='';
+  if(listSelectedDate===todayStr()){
+    const yd=toDateStr(new Date(Date.now()-86400000));
+    const leftover=visits.filter(v=>v.date===yd&&(v.status==='pending'||v.status==='confirmed'));
+    if(leftover.length) rollHtml=`<div class="details-nudge" data-action="rollover" style="background:var(--blue-bg);color:var(--blue)">📆 ${leftover.length} unfinished visit${leftover.length>1?'s':''} from yesterday — tap to move to today</div>`;
+  }
   // Miles-saved payoff: shows once a day has been optimized (straight-line est).
   const savedMi=estSavedMiles(listSelectedDate);
   const savedBannerHtml = savedMi>=0.1
     ? `<div class="miles-saved-banner">⚡ Optimized — saving ~${savedMi.toFixed(1)} mi vs. appointment order</div>`
     : '';
+  // "Done by ~" day narrative — the Circuit-style projection line.
+  let projHtml='';
+  if(listSelectedDate===todayStr()&&proj.finish){
+    const remaining=drivingVisits(todayStr()).filter(v=>v.status!=='done').length;
+    if(remaining) projHtml=`<div class="day-projection">🕐 ${remaining} stop${remaining>1?'s':''} to go · done by ~${fmtClock(proj.finish)}</div>`;
+  }
   // Hero first — the next stop is the single most important thing on this
   // screen; banners and nudges queue up behind it.
-  c.innerHTML=heroHtml+nudgeHtml+savedBannerHtml+sorted.map((v,i)=>{
+  c.innerHTML=heroHtml+projHtml+rollHtml+nudgeHtml+savedBannerHtml+sorted.map((v,i)=>{
     const dist=legOf(v);
     const pts=getPoints(v);
     return `<div class="visit-card status-${v.status}">
@@ -3966,6 +4199,7 @@ function renderList(){
             <span class="tag tag-type">${escAttr(TYPE_LABELS[v.type]||v.type)}</span>
             <span class="tag tag-visit">${escAttr(CAT_LABELS[v.cat]||v.cat)}</span>
             ${dist?`<span class="tag tag-miles">${dist}</span>`:''}
+            ${proj.etas[v.id]?`<span class="tag tag-eta">~${fmtClock(proj.etas[v.id])}</span>`:''}
             ${isPPV()?`<span class="tag tag-pay">${fmtMoney(getPay(v))}</span>`:''}
           </div>
         </div>
@@ -4123,6 +4357,7 @@ function renderSummary(){
     <div class="summary-card"><h3>📅 ${tf}</h3>
       <div class="mileage-big">${mi.toFixed(1)} mi</div>
       <div class="mileage-sub">${milesAreRoad()?'Driving mileage (round trip, road distance)':'Estimated total mileage (round trip, straight-line)'}</div>
+      ${mileageRate()?`<div class="summary-row"><span class="s-label">Mileage reimbursement (est.)</span><span class="s-val" style="color:var(--green)">${fmtMoney(mi*mileageRate())}</span></div>`:''}
       <div class="summary-row"><span class="s-label">This day's points</span><span class="s-val" style="color:var(--purple)">⭐ ${todayPts.toFixed(2)}</span></div>
       <div class="summary-row"><span class="s-label">Week points</span><span class="s-val" style="color:var(--purple)">⭐ ${weekPts.toFixed(2)} / ${weeklyTarget}</span></div>
       ${ppv?`<div class="summary-row"><span class="s-label">This day's pay</span><span class="s-val" style="color:var(--green)">${fmtMoney(dayPay)}</span></div>
@@ -4134,7 +4369,11 @@ function renderSummary(){
       <div class="summary-row"><span class="s-label">Skipped</span><span class="s-val" style="color:var(--red)">${skip}</span></div>
     </div>
     <div class="summary-card"><h3>🚗 Route &amp; Points</h3>${breakdown||'<div class="summary-row"><span class="s-label" style="color:var(--text-muted)">No visits yet</span></div>'}</div>
-    <div class="summary-card"><button class="export-btn" onclick="exportSummary()">📄 Export Day Summary</button></div>`;
+    <div class="summary-card">
+      <button class="export-btn" onclick="exportSummary()">📄 Export Day Summary</button>
+      <button class="export-btn" style="margin-top:8px" onclick="exportMileageLog()">🧾 Export Mileage Log (month)</button>
+      <button class="export-btn" style="margin-top:8px" onclick="openCopyDay()">📋 Copy Day to Another Date</button>
+    </div>`;
 }
 
 // ─── EXPORT ───────────────────────────────────────────────────────────────────
@@ -4175,6 +4414,53 @@ function exportSummary(){
     return;
   }
   downloadSummaryTxt(txt);
+}
+// ─── MILEAGE LOG (IRS-style monthly export) ───────────────────────────────────
+// Pub 463 wants date / start / destination / miles / business purpose per
+// trip, logged contemporaneously. All of that already lives in the visit
+// data — this turns the viewed day's MONTH into a reimbursement-ready CSV.
+// Distances are straight-line estimates (same basis as the app's offline
+// fallback) and labeled as such; addresses only, no patient names.
+function mileageRate(){ return Number(loadLocalPref('roundlyMileRate',''))||0; }
+function exportMileageLog(){
+  const ref=new Date(listSelectedDate+'T12:00:00');
+  const y=ref.getFullYear(), m=ref.getMonth();
+  const monthName=ref.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  const byDay={};
+  visits.forEach(v=>{
+    if(v.status==='skipped'||!v.coords) return;
+    const d=new Date(v.date+'T12:00:00');
+    if(d.getFullYear()===y&&d.getMonth()===m) (byDay[v.date]=byDay[v.date]||[]).push(v);
+  });
+  const dates=Object.keys(byDay).sort();
+  if(!dates.length){showToast('No pinned visits in '+monthName);return;}
+  const esc=s=>'"'+String(s||'').replace(/"/g,'""')+'"';
+  let total=0;
+  let csv='Date,From,To,Miles (straight-line est.),Business purpose\r\n';
+  for(const ds of dates){
+    // Reconstruct that day's driving order (num on optimized days, else time)
+    const stops=byDay[ds].slice().sort((a,b)=>optimizedDates[ds]
+      ? (a.num-b.num||a.time.localeCompare(b.time))
+      : (a.time.localeCompare(b.time)||a.num-b.num));
+    let prev={label:homeCoords.label,coords:homeCoords};
+    for(const v of stops){
+      const mi=haversine(prev.coords,v.coords);
+      total+=mi;
+      csv+=[ds,esc(prev.label),esc(v.addr),mi.toFixed(1),esc('Home health patient visit')].join(',')+'\r\n';
+      prev={label:v.addr,coords:v.coords};
+    }
+    const back=haversine(prev.coords,homeCoords);
+    total+=back;
+    csv+=[ds,esc(prev.label),esc(homeCoords.label),back.toFixed(1),esc('Return to base')].join(',')+'\r\n';
+  }
+  csv+=`Total,,,${total.toFixed(1)},\r\n`;
+  const rate=mileageRate();
+  if(rate) csv+=`Reimbursement @ $${rate.toFixed(2)}/mi,,,${fmtMoney(total*rate).slice(1)},\r\n`;
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download=`roundly_mileage_${y}-${String(m+1).padStart(2,'0')}.csv`;
+  a.click();
+  showToast(`🧾 Mileage log for ${monthName} exported`);
 }
 function downloadSummaryTxt(txt){
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'text/plain'}));

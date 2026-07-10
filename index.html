@@ -159,6 +159,11 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
 .header-title p{font-size:11px;color:var(--text-muted)}
 .header-right{display:flex;align-items:center;gap:8px}
 .header-date{font-size:12px;color:var(--text-muted);background:var(--white);padding:5px 11px;border-radius:20px;box-shadow:var(--shadow-sm)}
+/* Sync status: hidden when everything is synced; amber while writes are
+   queued in the outbox; gray when offline. Tap = try to sync now. */
+.sync-badge{display:none;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:5px 9px;border-radius:20px;cursor:pointer;white-space:nowrap}
+.sync-badge.pending{background:var(--amber-bg);color:var(--amber)}
+.sync-badge.off{background:var(--gray-100);color:var(--gray-600)}
 .btn-settings{background:var(--white);border:none;color:var(--text);width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-sm)}
 .btn-settings:active{background:var(--gray-100)}
 
@@ -698,6 +703,7 @@ body.hide-fabs .fab,body.hide-fabs .fab-quick,body.hide-fabs .fab-extra{display:
         <div><h1>Roundly</h1><p>Clinician Route &amp; Visit Tracker</p></div>
       </div>
       <div class="header-right">
+        <div class="sync-badge" id="sync-badge" onclick="flushOutbox()" title="Sync status — tap to sync now" role="button"></div>
         <div class="header-date" id="today-date" onclick="goToToday();switchView('list')" title="Jump to today" role="button"></div>
         <button class="btn-settings" onclick="openSettings()" title="Settings" aria-label="Settings">⚙️</button>
       </div>
@@ -1185,6 +1191,13 @@ function isDarkTheme(){return document.documentElement.getAttribute('data-theme'
 // ─── AUTH GATE ────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', initAuthFlow);
 
+// Offline app shell (sw.js): caches index.html + CDN libs so the app still
+// OPENS in a cell dead zone. Data reads/writes stay online-only — the outbox
+// below covers writes that fail mid-route.
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+}
+
 async function initAuthFlow(){
   setupStaticUI();
   // Check for an existing session (returning user) or a fresh redirect back
@@ -1257,6 +1270,7 @@ async function onSignedIn(user){
   document.getElementById('signin-screen').style.display='none';
   document.getElementById('app-loading-overlay').style.display='flex';
 
+  loadOutbox(); // writes queued on a previous (offline) session, per user
   await loadAllDataFromSupabase();
 
   applyTheme();applyAccent();buildAccentGrid();buildCatDropdown();buildTypeDropdown();buildSettingsRows();
@@ -1268,6 +1282,7 @@ async function onSignedIn(user){
   loadPinFromLocal();
   if(pinHash){ showLockScreen(); } else { appUnlocked=true; }
   renderAll();
+  flushOutbox(); // replay anything queued from a previous session
 }
 
 // ─── EVENT DELEGATION (fixes "all visits react to one click" bug) ────────────
@@ -1327,6 +1342,110 @@ function getDayLabel(ds){
 function escAttr(s){
   return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
+
+// ─── SYNC RELIABILITY: offline outbox + refetch-on-return ────────────────────
+// Reads: when the PWA returns to the foreground stale (opened next morning,
+// or edited from another device), data is refetched. Writes: UPDATES/UPSERTS
+// to existing rows that fail (dead zone, expired token) are queued per-user
+// in localStorage and replayed when connectivity returns; the header badge
+// shows what's pending. Creating and deleting rows still requires
+// connectivity and fails loudly — replaying those needs id mapping and
+// isn't worth the risk.
+let lastLoadAt=0;              // stamped by loadAllDataFromSupabase
+let outbox=[];                 // [{kind, id?|name?, payload?|row?, attempts, at}]
+let outboxFlushing=false, outboxTimer=null;
+function outboxKey(){ return 'roundlyOutbox_'+(currentUser?currentUser.id:'anon'); }
+function saveOutbox(){ saveLocalPref(outboxKey(),outbox); }
+function loadOutbox(){
+  outbox=loadLocalPref(outboxKey(),[]);
+  if(!Array.isArray(outbox)) outbox=[];
+  updateSyncBadge();
+}
+// Queue a failed write — merging into an already-queued op for the same row,
+// so ten offline status taps stay ONE op with the latest field values.
+function queueWrite(op){
+  const keyOf=o=>o.kind+':'+(o.id!=null?o.id:(o.name||''));
+  const i=outbox.findIndex(o=>keyOf(o)===keyOf(op));
+  if(i>=0){
+    const old=outbox[i];
+    if(op.payload&&old.payload) op.payload={...old.payload,...op.payload};
+    if(op.row&&old.row) op.row={...old.row,...op.row};
+    outbox.splice(i,1);
+  }
+  op.attempts=0; op.at=Date.now();
+  outbox.push(op);
+  saveOutbox(); updateSyncBadge(); scheduleFlush(4000);
+}
+async function applyQueuedWrite(op){
+  const uid=currentUser.id;
+  if(op.kind==='visit-update')
+    return (await sb.from('visits').update(op.payload).eq('id',op.id).eq('user_id',uid)).error;
+  if(op.kind==='patient-upsert')
+    return (await sb.from('saved_patients').upsert({user_id:uid,...op.row},{onConflict:'user_id,name'})).error;
+  if(op.kind==='settings-upsert')
+    return await writeSettingsRow(); // replays the CURRENT in-memory settings — freshest wins
+  return null; // unknown kind — drop it
+}
+function scheduleFlush(delay){
+  if(outboxTimer) clearTimeout(outboxTimer);
+  outboxTimer=setTimeout(flushOutbox,delay);
+}
+async function flushOutbox(){
+  if(outboxTimer){clearTimeout(outboxTimer);outboxTimer=null;}
+  updateSyncBadge();
+  if(outboxFlushing||!currentUser||!outbox.length) return;
+  if(navigator.onLine===false){ scheduleFlush(30000); return; }
+  outboxFlushing=true;
+  let flushed=0;
+  try{
+    while(outbox.length){
+      const op=outbox[0];
+      let err=null;
+      try{ err=await applyQueuedWrite(op); }catch(e){ err=e; }
+      if(!err){ outbox.shift(); flushed++; saveOutbox(); continue; }
+      op.attempts=(op.attempts||0)+1;
+      if(op.attempts>=10){
+        // Ten failures smells like a permanent server rejection, not
+        // connectivity — drop it rather than blocking the queue forever.
+        outbox.shift(); saveOutbox();
+        showToast('⚠️ One change couldn\'t sync after repeated tries and was dropped');
+        continue;
+      }
+      saveOutbox(); scheduleFlush(30000);
+      break;
+    }
+  } finally { outboxFlushing=false; updateSyncBadge(); }
+  if(flushed && !outbox.length){
+    showToast(`✓ Synced ${flushed} change${flushed>1?'s':''}`);
+    lastLoadAt=0; refreshIfStale(); // pull the server's merged view back down
+  }
+}
+function updateSyncBadge(){
+  const el=document.getElementById('sync-badge'); if(!el) return;
+  if(navigator.onLine===false){ el.textContent='📴 Offline'; el.className='sync-badge off'; el.style.display='inline-flex'; }
+  else if(outbox.length){ el.textContent=`⏳ ${outbox.length} to sync`; el.className='sync-badge pending'; el.style.display='inline-flex'; }
+  else el.style.display='none';
+}
+// Refetch when the PWA comes back to the foreground with stale data.
+async function refreshIfStale(){
+  if(!currentUser||document.visibilityState!=='visible') return;
+  if(outbox.length){ flushOutbox(); return; } // push our writes first; flush refetches after
+  if(Date.now()-lastLoadAt<60000) return;
+  // Don't yank state out from under an open editor/sheet — the next return
+  // to the app catches it instead.
+  if(document.getElementById('pd-backdrop')) return;
+  const panel=document.getElementById('add-panel');
+  if(panel&&panel.classList.contains('open')) return;
+  lastLoadAt=Date.now(); // before the await so parallel triggers don't stack
+  await loadAllDataFromSupabase();
+  // Keep the header's "today" honest if the app slept past midnight.
+  document.getElementById('today-date').textContent=new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+  updateDateStripLabel();
+  renderAll();
+}
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') refreshIfStale(); });
+window.addEventListener('online',()=>{ updateSyncBadge(); flushOutbox(); });
+window.addEventListener('offline',updateSyncBadge);
 
 // ─── SUPABASE DATA LAYER ───────────────────────────────────────────────────────
 // All functions below replace what used to be localStorage read/write.
@@ -1415,19 +1534,16 @@ async function loadAllDataFromSupabase(){
     settingsLoaded = !insErr;
   }
   document.getElementById('home-addr').value=homeCoords.label;
+  lastLoadAt=Date.now(); // refreshIfStale() uses this to decide when to re-pull
 }
 
 // True only after this user's settings row has actually been read (or first-
 // created). Guards saveUserSettings against clobbering the DB with defaults.
 let settingsLoaded=false;
 
-// Returns true when the settings row was actually written.
-async function saveUserSettings(){
-  if(!currentUser) return false;
-  if(!settingsLoaded){
-    showToast('⚠️ Settings didn\'t load — refresh the app before changing them');
-    return false;
-  }
+// Raw settings write, no guards — shared by saveUserSettings and the outbox
+// replay. Returns the Supabase error (null on success).
+async function writeSettingsRow(){
   const {error} = await sb.from('user_settings').upsert({
     user_id: currentUser.id,
     cat_points: catPoints,
@@ -1443,7 +1559,20 @@ async function saveUserSettings(){
     accent_id: accentId,
     updated_at: new Date().toISOString()
   });
-  if(error){ showToast('⚠️ Couldn\'t save settings — check connection'); return false; }
+  return error||null;
+}
+// Returns true (written), 'queued' (offline — will sync), or false (blocked).
+async function saveUserSettings(){
+  if(!currentUser) return false;
+  if(!settingsLoaded){
+    showToast('⚠️ Settings didn\'t load — refresh the app before changing them');
+    return false;
+  }
+  const error=await writeSettingsRow();
+  if(error){
+    queueWrite({kind:'settings-upsert'});
+    return 'queued';
+  }
   return true;
 }
 
@@ -1875,9 +2004,10 @@ async function saveSettings(){
     const p=parseFloat(document.getElementById('spay-'+k)?.value);
     if(!isNaN(p)&&p>=0){ catPay[k]=p; }
   });
-  const ok=await saveUserSettings(); // it toasts its own failure reason
+  const ok=await saveUserSettings();
   buildCatDropdown();closeAllPanels();renderAll();
-  if(ok) showToast('✓ Settings saved!');
+  if(ok==='queued') showToast('📴 Settings saved on this device — will sync when back online');
+  else if(ok) showToast('✓ Settings saved!');
 }
 // Reflect the current pay mode across the UI: Settings toggle + rate editor
 // visibility, and the visit form's pay field. renderStats handles the header
@@ -2126,7 +2256,10 @@ async function upsertSavedPatient(name,addr,coords,cat,type,dur,phone){
   };
   if(ph) row.phone=ph; // only overwrite the stored phone when we actually have one
   const {error}=await sb.from('saved_patients').upsert(row,{onConflict:'user_id,name'});
-  if(error) showToast('⚠️ Couldn\'t sync patient info — check connection');
+  if(error){
+    const {user_id,...rest}=row; // outbox re-stamps user_id at replay time
+    queueWrite({kind:'patient-upsert',name:rest.name,row:rest});
+  }
 }
 
 // ─── DOCTORS + CLIENT NOTES (reference, not charting) ─────────────────────────
@@ -2175,9 +2308,11 @@ async function saveClientNotes(name,notes){
     {onConflict:'user_id,name'}
   );
   if(error){
-    setPdSaveState('⚠️ Not saved');
-    showToast('⚠️ Couldn\'t save notes — check connection before closing');
-    return false;
+    // Queue it — dictated notes must survive a dead zone. The badge + the
+    // sheet indicator both show it's pending.
+    queueWrite({kind:'patient-upsert',name:p.name,row:{name:p.name,addr:p.addr||'',notes}});
+    setPdSaveState('📴 Will sync');
+    return true;
   }
   setPdSaveState('✓ Saved');
   return true;
@@ -2211,23 +2346,27 @@ async function addProvider({name,specialty,phone,npi}){
 async function linkDoctorToPatient(name,providerId){
   const p=getOrInitPatient(name);
   if(p.providerIds.includes(providerId)) return;
-  const prev=p.providerIds;
   p.providerIds=[...p.providerIds, providerId];
   const {error}=await sb.from('saved_patients').upsert(
     {user_id:currentUser.id, name:p.name, addr:p.addr||'', provider_ids:p.providerIds},
     {onConflict:'user_id,name'}
   );
-  if(error){ p.providerIds=prev; renderPatientSheet(); showToast('⚠️ Couldn\'t link doctor — check connection'); }
+  if(error){
+    queueWrite({kind:'patient-upsert',name:p.name,row:{name:p.name,addr:p.addr||'',provider_ids:p.providerIds}});
+    showToast('📴 Doctor linked on this device — will sync when back online');
+  }
 }
 async function unlinkDoctorFromPatient(name,providerId){
   const p=findPatient(name); if(!p) return;
-  const prev=p.providerIds;
   p.providerIds=p.providerIds.filter(id=>id!==providerId);
   const {error}=await sb.from('saved_patients').upsert(
     {user_id:currentUser.id, name:p.name, addr:p.addr||'', provider_ids:p.providerIds},
     {onConflict:'user_id,name'}
   );
-  if(error){ p.providerIds=prev; renderPatientSheet(); showToast('⚠️ Couldn\'t remove doctor — check connection'); }
+  if(error){
+    queueWrite({kind:'patient-upsert',name:p.name,row:{name:p.name,addr:p.addr||'',provider_ids:p.providerIds}});
+    showToast('📴 Doctor removed on this device — will sync when back online');
+  }
 }
 // Search the national NPI (NPPES) registry via the Netlify proxy (the browser
 // can't call NPPES directly — no CORS). Returns a normalized list. The proxy
@@ -2702,13 +2841,16 @@ async function doSubmitVisitForm(){
     // Moving to a different day: slot at the END of the target day so its num
     // can't collide with an existing (possibly optimized) position there.
     const newNum=(date!==oldDate)?visits.filter(x=>x.date===date&&x.id!==v.id).length+1:v.num;
-    // Write first, mutate local state only on success — otherwise the card
-    // shows the edit, the toast says saved, and it all reverts on next load.
-    const {error:updErr}=await sb.from('visits').update({
+    const updPayload={
       name,addr,date,time,dur,type,cat,notes,phone,pay:payVal,needs_details:false,num:newNum,
       lat:finalCoords?.lat??null, lng:finalCoords?.lng??null
-    }).eq('id',v.id).eq('user_id',currentUser.id);
-    if(updErr){showToast('⚠️ Couldn\'t save changes — check connection and try again');return;}
+    };
+    const {error:updErr}=await sb.from('visits').update(updPayload).eq('id',v.id).eq('user_id',currentUser.id);
+    if(updErr){
+      // Keep the edit locally and queue it — it replays when signal returns.
+      queueWrite({kind:'visit-update',id:v.id,payload:updPayload});
+      showToast('📴 Saved on this device — will sync when back online');
+    }
     Object.assign(v,{name,addr,date,time,dur,type,cat,notes,phone,pay:payVal,needsDetails:false,coords:finalCoords,num:newNum});
     if(date!==oldDate) await renumberDay(oldDate); // close the gap left behind
     await upsertSavedPatient(name,addr,finalCoords,cat,type,dur,phone);
@@ -2779,20 +2921,16 @@ async function deleteFromEditPanel(){
 
 // ─── VISIT ACTIONS ────────────────────────────────────────────────────────────
 // Optimistic status toggle: flip locally for instant feedback, then sync; on
-// failure REVERT the local flip (a toast alone would leave the UI permanently
-// claiming a state the DB doesn't have).
+// failure the change is QUEUED in the outbox (header badge shows it) and
+// replayed when connectivity returns — mid-route status taps must not depend
+// on signal.
 async function setVisitStatus(id,next){
   const v=visits.find(v=>v.id===id);
   if(!v) return;
-  const prev=v.status;
   v.status=next;
   renderAll();
   const {error}=await sb.from('visits').update({status:next}).eq('id',id).eq('user_id',currentUser.id);
-  if(error){
-    v.status=prev;
-    renderAll();
-    showToast('⚠️ Couldn\'t sync that change — check connection');
-  }
+  if(error) queueWrite({kind:'visit-update',id,payload:{status:next}});
 }
 async function markDone(id){
   const v=visits.find(v=>v.id===id);
@@ -3132,7 +3270,7 @@ async function renumberDay(date){
   sameDay.forEach((x,i)=>x.num=i+1);
   for(const sv of sameDay){
     const {error}=await sb.from('visits').update({num:sv.num}).eq('id',sv.id).eq('user_id',currentUser.id);
-    if(error){showToast('⚠️ Couldn\'t sync visit order — check connection');break;}
+    if(error) queueWrite({kind:'visit-update',id:sv.id,payload:{num:sv.num}});
   }
 }
 async function deleteVisit(id){

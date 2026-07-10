@@ -9,6 +9,7 @@
 <meta name="theme-color" content="#E8632C">
 <title>Roundly — Clinician Route &amp; Productivity Tracker</title>
 <link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap">
@@ -154,6 +155,9 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
 .app-header{background:transparent;color:var(--text);padding:calc(12px + var(--safe-top)) 16px 0;flex-shrink:0;position:relative;z-index:10}
 .header-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .header-title{display:flex;align-items:center;gap:9px}
+/* Once the list is scrolled, the brand row's job is done — give the pixels
+   back to the route. */
+.app-header.compact .header-title{display:none}
 .header-icon{width:36px;height:36px;background:var(--accent-grad);color:white;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:19px;box-shadow:var(--shadow-sm)}
 .header-title h1{font-size:17px;font-weight:700}
 .header-title p{font-size:11px;color:var(--text-muted)}
@@ -193,7 +197,9 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
 /* ===== HOME BAR ===== */
 .home-bar{display:flex;align-items:center;gap:8px;padding:8px 12px 4px;border-bottom:none;background:transparent;flex-shrink:0}
 .home-bar label{font-size:12px;font-weight:600;color:var(--accent);white-space:nowrap}
-.home-bar input{flex:1;font-size:13px;padding:8px 12px;border-radius:var(--radius-md);border:none;background:var(--white);color:var(--text);box-shadow:var(--shadow-sm)}
+/* All text inputs ≥16px — anything smaller makes iOS Safari zoom the whole
+   viewport on focus (and it doesn't always zoom back) in a standalone PWA. */
+.home-bar input{flex:1;font-size:16px;padding:8px 12px;border-radius:var(--radius-md);border:none;background:var(--white);color:var(--text);box-shadow:var(--shadow-sm)}
 .home-bar input:focus{outline:none;box-shadow:0 0 0 2px var(--accent-mid)}
 .btn-set{font-size:12px;padding:8px 13px;border-radius:var(--radius-md);border:none;background:var(--accent-grad);color:white;cursor:pointer;white-space:nowrap;font-weight:600;box-shadow:var(--shadow-sm)}
 .home-confirmed{font-size:11px;padding:6px 12px;color:var(--teal);background:transparent;display:none;align-items:center;gap:5px;border-bottom:none;font-weight:600}
@@ -212,7 +218,7 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
 
 /* ===== DATE STRIP (for day switching within Visits tab) ===== */
 .date-strip{display:flex;align-items:center;gap:8px;padding:8px 12px 6px;border-bottom:none;background:transparent;flex-shrink:0}
-.date-strip-btn{background:var(--white);border:none;width:30px;height:30px;border-radius:50%;color:var(--text-muted);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:var(--shadow-sm)}
+.date-strip-btn{background:var(--white);border:none;width:42px;height:42px;border-radius:50%;color:var(--text-muted);font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:var(--shadow-sm)}
 .date-strip-label{flex:1;text-align:center;font-size:13px;font-weight:700;color:var(--accent);cursor:pointer}
 .date-strip-today{font-size:11px;padding:6px 11px;border-radius:20px;border:none;color:var(--accent);background:var(--accent-light);cursor:pointer;white-space:nowrap;font-weight:700}
 
@@ -298,10 +304,10 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
 .slide-panel.open{transform:translateX(-50%) translateY(0)}
 .panel-handle{width:36px;height:4px;background:var(--gray-200);border-radius:2px;margin:10px auto 0}
 .panel-title{font-size:16px;font-weight:700;padding:12px 16px 10px;color:var(--accent);border-bottom:1px solid var(--gray-100);display:flex;align-items:center;justify-content:space-between}
-.panel-close{width:28px;height:28px;border-radius:50%;background:var(--gray-100);border:none;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:var(--text-muted)}
+.panel-close{width:40px;height:40px;border-radius:50%;background:var(--gray-100);border:none;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;color:var(--text-muted)}
 .form-body{padding:12px 14px;display:flex;flex-direction:column;gap:10px}
 .field-label{font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px}
-.form-input,.form-select{width:100%;font-size:15px;padding:11px 13px;border-radius:var(--radius-md);border:none;background:var(--input-bg);color:var(--text);appearance:none;-webkit-appearance:none;transition:background 0.15s,box-shadow 0.15s}
+.form-input,.form-select{width:100%;font-size:16px;padding:11px 13px;border-radius:var(--radius-md);border:none;background:var(--input-bg);color:var(--text);appearance:none;-webkit-appearance:none;transition:background 0.15s,box-shadow 0.15s}
 .form-input:focus,.form-select:focus{outline:none;background:var(--white);box-shadow:0 0 0 2px var(--accent-mid)}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .select-wrap{position:relative}
@@ -322,11 +328,11 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
 .setting-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--gray-100)}
 .setting-row:last-child{border-bottom:none}
 .setting-name{font-size:13px;color:var(--text);flex:1}
-.setting-pts-input{width:72px;font-size:14px;font-weight:700;padding:6px 10px;border-radius:var(--radius-sm);border:none;text-align:right;color:var(--purple);background:var(--purple-bg)}
+.setting-pts-input{width:72px;font-size:16px;font-weight:700;padding:6px 10px;border-radius:var(--radius-sm);border:none;text-align:right;color:var(--purple);background:var(--purple-bg)}
 .setting-pts-input:focus{outline:none;border-color:var(--purple);box-shadow:0 0 0 2px var(--purple-bg)}
 .setting-pay-wrap{display:flex;align-items:center;gap:2px;background:var(--green-bg);border-radius:var(--radius-sm);padding:0 8px}
 .setting-pay-sign{font-size:13px;font-weight:700;color:var(--green)}
-.setting-pay-input{width:64px;font-size:14px;font-weight:700;padding:6px 4px;border:none;text-align:right;color:var(--green);background:transparent}
+.setting-pay-input{width:70px;font-size:16px;font-weight:700;padding:6px 4px;border:none;text-align:right;color:var(--green);background:transparent}
 .setting-pay-input:focus{outline:none}
 /* Visit-form pay field */
 .pay-input-wrap{display:flex;align-items:center;gap:4px;background:var(--input-bg);border-radius:var(--radius-md);padding:0 12px}
@@ -337,9 +343,9 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
 .setting-target-row label{font-size:14px;color:var(--text);flex:1}
 .setting-target-input{width:80px;font-size:18px;font-weight:700;padding:8px 10px;border-radius:var(--radius-sm);border:none;text-align:center;color:var(--accent);background:var(--input-bg)}
 .setting-target-input:focus{outline:none;box-shadow:0 0 0 2px var(--accent-mid)}
-.setting-remove-btn{border:none;background:none;color:var(--red);font-size:14px;font-weight:700;cursor:pointer;padding:4px 6px;line-height:1;flex-shrink:0}
+.setting-remove-btn{border:none;background:none;color:var(--red);font-size:15px;font-weight:700;cursor:pointer;padding:12px 14px;line-height:1;flex-shrink:0}
 .add-custom-row{display:flex;align-items:center;gap:8px;margin-top:12px}
-.add-custom-name{flex:1;min-width:0;font-size:13px;padding:8px 10px;border-radius:var(--radius-sm);border:none;background:var(--input-bg);color:var(--text)}
+.add-custom-name{flex:1;min-width:0;font-size:16px;padding:8px 10px;border-radius:var(--radius-sm);border:none;background:var(--input-bg);color:var(--text)}
 .add-custom-pts{width:64px;font-size:13px;font-weight:700;padding:8px 8px;border-radius:var(--radius-sm);border:none;text-align:right;color:var(--purple);background:var(--purple-bg)}
 .add-custom-name:focus,.add-custom-pts:focus{outline:none;box-shadow:0 0 0 2px var(--accent-mid)}
 .add-custom-btn{flex-shrink:0;padding:8px 12px;border-radius:var(--radius-sm);border:none;background:var(--teal-bg);color:var(--teal);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
@@ -442,7 +448,7 @@ body.hide-fabs .fab,body.hide-fabs .fab-quick,body.hide-fabs .fab-extra{display:
    The month grid lives inside one floating white card (like the reference);
    day cells are borderless — selected = gradient fill, today = accent ring. */
 .cal-toolbar{display:flex;align-items:center;justify-content:space-between;padding:10px 12px 6px;border-bottom:none;background:transparent;flex-shrink:0}
-.cal-nav-btn{background:var(--white);border:none;width:30px;height:30px;border-radius:50%;color:var(--text-muted);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-sm)}
+.cal-nav-btn{background:var(--white);border:none;width:42px;height:42px;border-radius:50%;color:var(--text-muted);font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-sm)}
 .cal-month-label{font-size:14px;font-weight:700;color:var(--accent)}
 .cal-mode-toggle{display:flex;gap:6px}
 .cal-mode-btn{font-size:11px;padding:6px 11px;border-radius:20px;border:none;background:var(--white);color:var(--text-muted);cursor:pointer;font-weight:600;box-shadow:var(--shadow-sm)}
@@ -513,6 +519,7 @@ body.hide-fabs .fab,body.hide-fabs .fab-quick,body.hide-fabs .fab-extra{display:
 .dv-extra-icon{font-size:14px;flex-shrink:0}
 .pts-ref-card{background:var(--white);border:none;border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-sm)}
 .pts-ref-header{padding:10px 14px 8px;background:var(--gray-50);border-bottom:none;font-size:13px;font-weight:700;color:var(--accent);display:flex;justify-content:space-between;align-items:center}
+.pts-add-extra{border:none;background:var(--purple-bg);color:var(--purple);font-size:12px;font-weight:700;padding:8px 14px;border-radius:20px;cursor:pointer}
 .pts-ref-edit-btn{font-size:11px;padding:5px 11px;border-radius:20px;border:none;background:var(--accent-light);color:var(--accent);cursor:pointer;font-weight:700}
 .pts-ref-row{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-bottom:1px solid var(--gray-100);font-size:13px}
 .pts-ref-row:last-child{border-bottom:none}
@@ -524,7 +531,7 @@ body.hide-fabs .fab,body.hide-fabs .fab-quick,body.hide-fabs .fab-extra{display:
 .extra-pts-label{font-size:13px;font-weight:500;color:var(--text)}
 .extra-pts-date{font-size:11px;color:var(--text-muted)}
 .extra-pts-val{font-weight:700;color:var(--purple);font-size:13px}
-.extra-pts-del{background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:4px}
+.extra-pts-del{background:none;border:none;color:var(--red);cursor:pointer;font-size:15px;padding:12px 14px}
 
 /* ===== SUMMARY ===== */
 .summary-scroll{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
@@ -576,6 +583,10 @@ body.hide-fabs .fab,body.hide-fabs .fab-quick,body.hide-fabs .fab-extra{display:
 .qt-item:active{filter:brightness(0.96)}
 .qt-call{background:var(--teal-bg);color:var(--teal)}
 .qt-cancel{background:transparent;color:var(--text-muted);font-weight:600}
+.qt-custom-row{display:flex;gap:8px;margin-top:8px}
+.qt-custom-row .form-input{flex:1}
+.qt-send{border:none;background:var(--accent-grad);color:white;font-weight:700;font-size:14px;padding:0 18px;border-radius:var(--radius-md);cursor:pointer}
+.quick-toggle{border:none;background:var(--accent-light);color:var(--accent);font-size:12px;font-weight:700;padding:8px 12px;border-radius:20px;cursor:pointer;margin-left:auto;margin-right:8px}
 .nsh-text{flex:0 0 auto;padding:0 16px;background:rgba(255,255,255,0.18);color:#fff;box-shadow:inset 0 0 0 2px rgba(255,255,255,0.6)}
 /* ===== PATIENT REFERENCE SHEET (doctors + notes) ===== */
 .pd-sheet{max-height:88vh;overflow-y:auto}
@@ -727,16 +738,6 @@ body.hide-fabs .fab,body.hide-fabs .fab-quick,body.hide-fabs .fab-extra{display:
 
   <!-- VIEW: LIST -->
   <div id="view-list" class="visible">
-    <div class="home-bar">
-      <label>🏠 Base:</label>
-      <div class="addr-wrap" style="flex:1">
-        <input type="text" id="home-addr" class="form-input" style="padding:7px 10px;font-size:13px" placeholder="Your starting address…" value="Charlotte, NC" autocomplete="off">
-        <div class="addr-dropdown" id="home-dropdown"></div>
-      </div>
-      <button class="btn-set" onclick="setHomeBase()">Set</button>
-    </div>
-    <div class="home-confirmed" id="home-confirmed">✓ <span id="home-confirmed-text"></span></div>
-
     <div class="date-strip">
       <button class="date-strip-btn" onclick="shiftListDate(-1)" aria-label="Previous day">‹</button>
       <div class="date-strip-label" id="date-strip-label" onclick="switchView('calendar')">Today</div>
@@ -849,7 +850,9 @@ body.hide-fabs .fab,body.hide-fabs .fab-quick,body.hide-fabs .fab-extra{display:
 <!-- FABs -->
 <button class="fab-quick" onclick="openQuickAddPanel()" aria-label="Quick add visit" title="Quick add — name &amp; address only, fill in the rest later">⚡</button>
 <button class="fab" onclick="openAddPanel()" aria-label="Add patient visit">+</button>
-<button class="fab-extra" onclick="openExtraPanel()" aria-label="Add other productivity points" title="Add meeting/education points">⭐</button>
+<!-- extra-points entry lives in the Points view now — a low-frequency action
+     shouldn't hold a permanent thumb-zone FAB slot -->
+
 
 <!-- OVERLAY -->
 <div class="overlay" id="overlay" onclick="closeAllPanels()"></div>
@@ -857,7 +860,7 @@ body.hide-fabs .fab,body.hide-fabs .fab-quick,body.hide-fabs .fab-extra{display:
 <!-- ADD / EDIT VISIT PANEL -->
 <div class="slide-panel" id="add-panel">
   <div class="panel-handle"></div>
-  <div class="panel-title"><span id="panel-title-text">Add Patient Visit</span> <button class="panel-close" onclick="closeAllPanels()" aria-label="Close">✕</button></div>
+  <div class="panel-title"><span id="panel-title-text">Add Patient Visit</span> <button class="quick-toggle" id="quick-toggle-btn" onclick="applyQuickMode(!document.getElementById('add-panel').classList.contains('quick'))">⚡ Quick</button><button class="panel-close" onclick="closeAllPanels()" aria-label="Close">✕</button></div>
   <div class="form-body">
     <input type="hidden" id="f-edit-id" value="">
     <div>
@@ -966,6 +969,20 @@ body.hide-fabs .fab,body.hide-fabs .fab-quick,body.hide-fabs .fab-extra{display:
 <div class="slide-panel" id="settings-panel">
   <div class="panel-handle"></div>
   <div class="panel-title">⚙️ Settings <button class="panel-close" onclick="closeAllPanels()" aria-label="Close">✕</button></div>
+
+  <div class="settings-section">
+    <div class="settings-section-title">🏠 Home base</div>
+    <div class="home-bar">
+      <label>Base:</label>
+      <div class="addr-wrap" style="flex:1">
+        <input type="text" id="home-addr" class="form-input" style="padding:7px 10px" placeholder="Your starting address…" value="Charlotte, NC" autocomplete="off">
+        <div class="addr-dropdown" id="home-dropdown"></div>
+      </div>
+      <button class="btn-set" onclick="setHomeBase()">Set</button>
+    </div>
+    <div class="home-confirmed" id="home-confirmed">✓ <span id="home-confirmed-text"></span></div>
+    <div class="backup-note">Where your day starts and ends — mileage is a round trip from here. Saved to your account.</div>
+  </div>
 
   <div class="settings-section">
     <div class="settings-section-title">Appearance — Light / Dark</div>
@@ -1233,6 +1250,11 @@ function setupStaticUI(){
   setupAddrAutocomplete();
   setupNameAutocomplete();
   setupEventDelegation();
+  // Collapse the header brand row once the visit list is scrolled.
+  const listScroll=document.querySelector('#view-list .scroll-area');
+  if(listScroll) listScroll.addEventListener('scroll',()=>{
+    document.querySelector('.app-header').classList.toggle('compact',listScroll.scrollTop>30);
+  },{passive:true});
   setupLockKeypad();
   updateDateStripLabel();
 }
@@ -1283,11 +1305,57 @@ async function onSignedIn(user){
   if(pinHash){ showLockScreen(); } else { appUnlocked=true; }
   renderAll();
   flushOutbox(); // replay anything queued from a previous session
+  // Home-screen shortcut deep links (manifest.json "shortcuts")
+  const act=new URLSearchParams(location.search).get('action');
+  if(act){
+    history.replaceState(null,'',location.pathname); // don't re-fire on reload
+    if(act==='add') openAddPanel();
+    else if(act==='drive') enterDriveMode();
+  }
 }
 
 // ─── EVENT DELEGATION (fixes "all visits react to one click" bug) ────────────
 function setupEventDelegation(){
-  document.getElementById('visit-list-container').addEventListener('click', handleListClick);
+  const listEl=document.getElementById('visit-list-container');
+  listEl.addEventListener('click', handleListClick);
+  // Swipe gestures on visit cards: right = Done (toggle), left = Skip with an
+  // Undo toast. Vertical movement wins (scrolling), and the button row is
+  // excluded so taps there never start a drag.
+  let sw=null;
+  listEl.addEventListener('touchstart',e=>{
+    const card=e.target.closest('.visit-card');
+    if(!card||e.target.closest('.card-actions')){sw=null;return;}
+    sw={card,x:e.changedTouches[0].clientX,y:e.changedTouches[0].clientY,dx:0,active:false};
+  },{passive:true});
+  listEl.addEventListener('touchmove',e=>{
+    if(!sw) return;
+    const dx=e.changedTouches[0].clientX-sw.x, dy=e.changedTouches[0].clientY-sw.y;
+    if(!sw.active){
+      if(Math.abs(dy)>Math.abs(dx)||Math.abs(dx)<14){ if(Math.abs(dy)>14) sw=null; return; }
+      sw.active=true;
+    }
+    sw.dx=dx;
+    sw.card.style.transition='none';
+    sw.card.style.transform=`translateX(${Math.max(-96,Math.min(96,dx))}px)`;
+  },{passive:true});
+  listEl.addEventListener('touchend',()=>{
+    if(!sw) return;
+    const {card,dx,active}=sw; sw=null;
+    if(!active) return;
+    card.style.transition='transform 0.18s ease';
+    card.style.transform='';
+    const idEl=card.querySelector('[data-id]');
+    const id=idEl?parseInt(idEl.getAttribute('data-id')):null;
+    if(!id) return;
+    if(dx>72) markDone(id);
+    else if(dx<-72){
+      const v=visits.find(x=>x.id===id);
+      if(v&&v.status!=='skipped'){
+        markSkip(id);
+        showUndoToast(`Skipped ${v.name}`,()=>markSkip(id));
+      }
+    }
+  },{passive:true});
   // Drive Mode: swipe left/right to move between stops.
   const dmEl=document.getElementById('drive-mode');
   let dmTouchX=null;
@@ -1312,6 +1380,37 @@ function handleListClick(e){
   else if(action==='nav') navTo(id);
   else if(action==='edit') openEditPanel(id);
   else if(action==='delete') deleteVisit(id);
+  else if(action==='more') openVisitMenu(id);
+}
+// "⋯" overflow sheet — the card row keeps only the frequent actions (Confirm/
+// Done/Text/Navigate); Skip, Doctors & notes, Edit, and Delete live here so
+// eight sub-44px buttons don't fight for a 390px row (and Delete is no
+// longer one stray tap away from Edit).
+function closeVisitMenu(){const el=document.getElementById('vm-backdrop');if(el)el.remove();}
+function openVisitMenu(id){
+  const v=visits.find(x=>x.id===id); if(!v) return;
+  closeVisitMenu();
+  const wrap=document.createElement('div');
+  wrap.id='vm-backdrop';wrap.className='qt-backdrop';
+  wrap.innerHTML=`<div class="qt-sheet" role="dialog" aria-label="${escAttr(v.name)} actions">
+    <div class="qt-head"><div class="qt-name">${escAttr(v.name)}</div><div class="qt-phone">${escAttr(v.addr)}</div></div>
+    <button class="qt-item" data-vm="patient">🩺 Doctors &amp; notes</button>
+    <button class="qt-item" data-vm="skip">${v.status==='skipped'?'↩️ Unskip':'⏭ Skip this visit'}</button>
+    <button class="qt-item" data-vm="edit">✏️ Edit visit</button>
+    <button class="qt-item" data-vm="delete" style="color:var(--red)">🗑 Delete visit</button>
+    <button class="qt-item qt-cancel" data-vm="cancel">Cancel</button>
+  </div>`;
+  document.body.appendChild(wrap);
+  wrap.addEventListener('click',e=>{
+    const b=e.target.closest('[data-vm]');
+    if(!b){ if(e.target===wrap) closeVisitMenu(); return; }
+    const k=b.getAttribute('data-vm');
+    closeVisitMenu();
+    if(k==='patient') openPatientSheet(v.name);
+    else if(k==='skip') markSkip(id);
+    else if(k==='edit') openEditPanel(id);
+    else if(k==='delete') deleteVisit(id);
+  });
 }
 
 // ─── DATE HELPERS ─────────────────────────────────────────────────────────────
@@ -2906,6 +3005,7 @@ function openEditPanel(id){
   applyPayModeUI();
   updatePtsPreview();
   document.getElementById('panel-title-text').textContent='Edit Patient Visit';
+  document.getElementById('quick-toggle-btn').style.display='none'; // quick mode is add-only
   document.getElementById('f-submit-btn').textContent='✓ Save Changes';
   document.getElementById('f-delete-btn').style.display='block';
   document.getElementById('f-delete-btn').setAttribute('data-id',v.id);
@@ -2972,19 +3072,27 @@ function openQuickText(id){
     <div class="qt-head"><div class="qt-name">${escAttr(v.name)}</div><div class="qt-phone">${escAttr(phone)}</div></div>
     <a class="qt-item qt-call" href="tel:${digits}">📞 Call</a>
     ${QUICK_TEXT_PRESETS.map(m=>`<a class="qt-item" href="${smsHref(phone,m)}">💬 ${escAttr(m)}</a>`).join('')}
-    <button class="qt-item qt-custom" data-qt-custom="1">✏️ Custom message…</button>
+    <div class="qt-custom-row">
+      <input class="form-input" id="qt-custom-input" placeholder="Custom message…" autocomplete="off" enterkeyhint="send">
+      <button class="qt-send" data-qt-send="1">Send</button>
+    </div>
     <button class="qt-item qt-cancel" data-qt-cancel="1">Cancel</button>
   </div>`;
   document.body.appendChild(wrap);
+  const sendCustom=()=>{
+    const inp=document.getElementById('qt-custom-input');
+    const msg=(inp&&inp.value||'').trim();
+    if(!msg) return;
+    closeQuickText();
+    window.location.href=smsHref(phone,msg);
+  };
   wrap.addEventListener('click',e=>{
     if(e.target===wrap||e.target.hasAttribute('data-qt-cancel')){closeQuickText();return;}
-    if(e.target.hasAttribute('data-qt-custom')){
-      const msg=prompt(`Message to ${v.name}:`,'');
-      closeQuickText();
-      if(msg&&msg.trim()) window.location.href=smsHref(phone,msg.trim());
-      return;
-    }
+    if(e.target.hasAttribute('data-qt-send')){sendCustom();return;}
     if(e.target.closest('a.qt-item')) setTimeout(closeQuickText,300); // let the tel:/sms: link fire first
+  });
+  wrap.addEventListener('keydown',e=>{
+    if(e.target.id==='qt-custom-input'&&e.key==='Enter'){e.preventDefault();sendCustom();}
   });
 }
 
@@ -3161,6 +3269,18 @@ function onPatientSheetKey(e){
 // through the day's driving order (routeVisits) with big Navigate / Text / Call
 // buttons and inline status controls; marking Done or Skip auto-advances.
 let driveIndex=0, driveDate=null;
+// Keep the screen awake while Drive Mode is open (works in iOS PWAs since
+// 18.4). The OS auto-releases on background — re-acquired on return.
+let wakeLock=null;
+async function acquireWakeLock(){
+  try{ if('wakeLock' in navigator) wakeLock=await navigator.wakeLock.request('screen'); }catch(e){}
+}
+function releaseWakeLock(){
+  try{ if(wakeLock){ wakeLock.release(); wakeLock=null; } }catch(e){}
+}
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible' && driveIsOpen()) acquireWakeLock();
+});
 function driveIsOpen(){return document.getElementById('drive-mode').classList.contains('open');}
 function driveRoute(){return drivingVisits(driveDate||listSelectedDate);}
 function driveCurrent(){return driveRoute()[driveIndex]||null;}
@@ -3173,12 +3293,14 @@ function enterDriveMode(){
   const dm=document.getElementById('drive-mode');
   dm.classList.add('open');dm.setAttribute('aria-hidden','false');
   document.body.style.overflow='hidden';
+  acquireWakeLock();
   renderDriveMode();
 }
 function exitDriveMode(){
   const dm=document.getElementById('drive-mode');
   dm.classList.remove('open');dm.setAttribute('aria-hidden','true');
   document.body.style.overflow='';
+  releaseWakeLock();
 }
 function driveGo(delta){
   const len=driveRoute().length;
@@ -3825,7 +3947,9 @@ function renderList(){
   const savedBannerHtml = savedMi>=0.1
     ? `<div class="miles-saved-banner">⚡ Optimized — saving ~${savedMi.toFixed(1)} mi vs. appointment order</div>`
     : '';
-  c.innerHTML=nudgeHtml+savedBannerHtml+heroHtml+sorted.map((v,i)=>{
+  // Hero first — the next stop is the single most important thing on this
+  // screen; banners and nudges queue up behind it.
+  c.innerHTML=heroHtml+nudgeHtml+savedBannerHtml+sorted.map((v,i)=>{
     const dist=legOf(v);
     const pts=getPoints(v);
     return `<div class="visit-card status-${v.status}">
@@ -3851,12 +3975,9 @@ function renderList(){
       <div class="card-actions">
         ${(v.status==='pending'||v.status==='confirmed')?`<button class="card-action-btn btn-confirm-act" data-action="confirm" data-id="${v.id}">${v.status==='confirmed'?'Unconfirm':'Confirm'}</button>`:''}
         <button class="card-action-btn btn-done-act" data-action="done" data-id="${v.id}">${v.status==='done'?'Undo':'Done'}</button>
-        <button class="card-action-btn" data-action="skip" data-id="${v.id}">${v.status==='skipped'?'Unskip':'Skip'}</button>
-        ${v.phone?`<button class="card-action-btn btn-text-act" data-action="text" data-id="${v.id}">💬 Text</button>`:''}
-        <button class="card-action-btn btn-ref-act" data-action="patient" data-id="${v.id}" title="Doctors & notes" aria-label="Doctors and notes">🩺</button>
+        ${v.phone?`<button class="card-action-btn btn-text-act" data-action="text" data-id="${v.id}">💬</button>`:''}
         <button class="card-action-btn btn-nav-act" data-action="nav" data-id="${v.id}">Navigate</button>
-        <button class="card-action-btn" style="color:var(--accent-mid)" data-action="edit" data-id="${v.id}">Edit</button>
-        <button class="card-action-btn btn-del-act" data-action="delete" data-id="${v.id}">Delete</button>
+        <button class="card-action-btn" data-action="more" data-id="${v.id}" aria-label="More actions">⋯</button>
       </div>
     </div>`;
   }).join('');
@@ -3960,7 +4081,7 @@ function renderPoints(){
       <div class="extra-pts-info"><div class="extra-pts-label">${escAttr(e.label)}</div><div class="extra-pts-date">${getDayLabel(e.date)}</div></div>
       <span class="extra-pts-val">${e.pts.toFixed(2)}</span>
       <button class="extra-pts-del" onclick="deleteExtraPoint(${e.id})">✕</button>
-    </div>`).join(''):'<div class="extra-pts-row"><span style="color:var(--text-muted);font-size:12px">No extra points logged this week. Tap the ⭐ button to add meetings, education, etc.</span></div>';
+    </div>`).join(''):'<div class="extra-pts-row"><span style="color:var(--text-muted);font-size:12px">No extra points logged this week. Tap ＋ Add above for meetings, education, etc.</span></div>';
 
   document.getElementById('points-content').innerHTML=`
     <div class="week-target-card">
@@ -3971,7 +4092,7 @@ function renderPoints(){
       ${isPPV()?`<div class="wtc-earned-row"><span class="wtc-earned-lbl">Earned this week</span><span class="wtc-earned-amt">${fmtMoney(weekPay)}</span></div>`:''}
     </div>
     ${days.length?daysHtml:'<div class="day-card"><div class="day-card-header"><h3 style="color:var(--text-muted)">No visits this week</h3></div></div>'}
-    <div class="pts-ref-card"><div class="pts-ref-header">⭐ Other productivity points</div>${extraListHtml}</div>
+    <div class="pts-ref-card"><div class="pts-ref-header">⭐ Other productivity points <button class="pts-add-extra" onclick="openExtraPanel()">＋ Add</button></div>${extraListHtml}</div>
     <div class="pts-ref-card"><div class="pts-ref-header">📋 Your point values <button class="pts-ref-edit-btn" onclick="openSettings()">✏️ Edit</button></div>${refRows}</div>`;
 }
 
@@ -4067,6 +4188,8 @@ function openAddPanel(){
   document.getElementById('add-panel').classList.remove('quick');
   document.getElementById('panel-title-text').textContent='Add Patient Visit';
   document.getElementById('f-submit-btn').textContent='+ Add to Route';
+  const qt=document.getElementById('quick-toggle-btn');
+  qt.style.display=''; qt.textContent='⚡ Quick';
   document.getElementById('f-delete-btn').style.display='none';
   document.getElementById('f-date').value=listSelectedDate;
   document.getElementById('f-time').value='09:00';
@@ -4089,6 +4212,8 @@ function applyQuickMode(on){
   const panel=document.getElementById('add-panel');
   panel.classList.toggle('quick',on);
   document.getElementById('f-submit-btn').textContent = on ? '⚡ Quick add' : '+ Add to Route';
+  const qt=document.getElementById('quick-toggle-btn');
+  if(qt) qt.textContent = on ? '📋 Full form' : '⚡ Quick';
   if(on){
     // Default the (hidden) type/category to neutral, low-value choices so a
     // provisional quick-add doesn't overstate points before it's completed.

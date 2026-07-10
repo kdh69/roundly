@@ -1312,6 +1312,15 @@ function getWeekBounds(off){
   const sun=new Date(mon);sun.setDate(mon.getDate()+6);sun.setHours(23,59,59,999);
   return{monday:mon,sunday:sun};
 }
+// Week offset (for getWeekBounds) of the week CONTAINING a given date string —
+// 0 = this week, -1 = last week… So Summary/Export can report the week the
+// viewed day actually belongs to, not whatever week it is right now.
+function weekOffsetFor(dateStr){
+  const d=new Date(dateStr+'T12:00:00'),day=d.getDay();
+  const mon=new Date(d);
+  mon.setDate(d.getDate()-(day===0?6:day-1));mon.setHours(0,0,0,0);
+  return Math.round((mon-getWeekBounds(0).monday)/(7*86400000));
+}
 function getDayLabel(ds){
   return new Date(ds+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
 }
@@ -1356,6 +1365,11 @@ async function loadAllDataFromSupabase(){
     coords: (r.lat!=null && r.lng!=null) ? {lat:r.lat,lng:r.lng} : null
   }));
   extraPoints = (extraRes.data||[]).map(r=>({id:r.id,label:r.label,date:r.date,pts:Number(r.pts)}));
+  // If the saved_patients query failed, the empty in-memory list is a LIE —
+  // opening a patient sheet would show blank notes over real DB data, and one
+  // edit would overwrite them. Block notes writes until a clean load.
+  patientsLoaded = !patientsRes.error;
+  if(patientsRes.error) showToast('⚠️ Couldn\'t load saved patients — refresh before editing notes');
   savedPatients = (patientsRes.data||[]).map(r=>({
     name:r.name, addr:r.addr, phone:r.phone||'',
     cat:r.cat||null, type:r.type||null, dur:r.dur!=null?Number(r.dur):null,
@@ -1375,23 +1389,46 @@ async function loadAllDataFromSupabase(){
     weeklyTarget = Number(s.weekly_target)||DEFAULT_WEEKLY_TARGET;
     payMode = s.pay_mode==='ppv' ? 'ppv' : 'salaried';
     catPay = s.cat_pay||{};
-    homeCoords = {lat:s.home_lat, lng:s.home_lng, label:s.home_label};
+    // Null-guard: a row with missing coords must not poison haversine /
+    // routeKeyFor (which would take the whole Visits tab down with it).
+    homeCoords = (s.home_lat!=null && s.home_lng!=null)
+      ? {lat:s.home_lat, lng:s.home_lng, label:s.home_label||''}
+      : {lat:35.2271, lng:-80.8431, label:s.home_label||'Charlotte, NC'};
     themeMode = s.theme_mode||'auto';
     accentId = s.accent_id||'coral';
+    settingsLoaded = true;
+  } else if(settingsRes.error){
+    // Settings QUERY failed (expired token, flaky network). The in-memory
+    // defaults are placeholders, NOT this user's real settings — if we let a
+    // settings write through now (even just tapping a theme button), the
+    // whole-row upsert in saveUserSettings would overwrite their real
+    // cat_points/custom_cats/cat_pay/home base with these defaults.
+    settingsLoaded = false;
+    showToast('⚠️ Couldn\'t load your settings — refresh before changing them');
   } else {
     // First-ever login — create their settings row with defaults
-    await sb.from('user_settings').insert({
+    const {error:insErr} = await sb.from('user_settings').insert({
       user_id:uid, cat_points:DEFAULT_POINTS, weekly_target:DEFAULT_WEEKLY_TARGET,
       home_label:homeCoords.label, home_lat:homeCoords.lat, home_lng:homeCoords.lng,
       theme_mode:'auto', accent_id:'coral'
     });
+    settingsLoaded = !insErr;
   }
   document.getElementById('home-addr').value=homeCoords.label;
 }
 
+// True only after this user's settings row has actually been read (or first-
+// created). Guards saveUserSettings against clobbering the DB with defaults.
+let settingsLoaded=false;
+
+// Returns true when the settings row was actually written.
 async function saveUserSettings(){
-  if(!currentUser) return;
-  await sb.from('user_settings').upsert({
+  if(!currentUser) return false;
+  if(!settingsLoaded){
+    showToast('⚠️ Settings didn\'t load — refresh the app before changing them');
+    return false;
+  }
+  const {error} = await sb.from('user_settings').upsert({
     user_id: currentUser.id,
     cat_points: catPoints,
     custom_cats: customCats,
@@ -1406,6 +1443,8 @@ async function saveUserSettings(){
     accent_id: accentId,
     updated_at: new Date().toISOString()
   });
+  if(error){ showToast('⚠️ Couldn\'t save settings — check connection'); return false; }
+  return true;
 }
 
 // PIN is intentionally kept in plain localStorage, NOT in Supabase — it's a
@@ -1529,22 +1568,27 @@ function showLockScreen(){
 function hideLockScreen(){
   document.getElementById('lock-screen').classList.remove('show');
 }
+// Arm PIN-setup mode. MUST run showLockScreen() first — it resets
+// pinSetupStage/sub-label to the plain unlock state, so setting them before
+// it would silently turn the new-PIN entry into a doomed unlock attempt.
+function startPinEntry(){
+  showLockScreen();
+  pinSetupStage='first';pinEntryBuffer='';updateLockDots();
+  document.getElementById('lock-sub').textContent='Enter a new 4-digit PIN';
+}
 function openPinSetup(){
   closeAllPanels();
   if(pinHash){
-    // Already set — offer to remove or change
-    if(confirm('A PIN is already set. Tap OK to change it, or Cancel to remove it.')){
-      pinSetupStage='first';pinEntryBuffer='';
-      document.getElementById('lock-sub').textContent='Enter a new 4-digit PIN';
-      showLockScreen();
-    } else {
+    // Already set — dismissing either dialog changes nothing (removal must be
+    // an explicit OK, never the Cancel/dismiss button).
+    if(confirm('A PIN is already set. Change it?\n\n(Cancel for the option to remove it)')){
+      startPinEntry();
+    } else if(confirm('Remove the PIN from this device?')){
       pinHash=null;savePinToLocal();buildSettingsRows();showToast('PIN removed');
     }
     return;
   }
-  pinSetupStage='first';pinEntryBuffer='';
-  document.getElementById('lock-sub').textContent='Enter a new 4-digit PIN';
-  showLockScreen();
+  startPinEntry();
 }
 function forgotPin(){
   // This PIN is just a local quick-lock on this device — it is NOT your
@@ -1566,11 +1610,14 @@ function forgotPin(){
 // option (e.g. to keep an offline copy, or move data into a fresh account).
 function downloadBackup(){
   const backup={
-    _roundlyBackupVersion:3,
+    _roundlyBackupVersion:4,
     exportedAt:new Date().toISOString(),
     account:currentUser?.email||null,
     visits,extraPoints,savedPatients,providers,
-    homeCoords,catPoints,weeklyTarget,themeMode,accentId,payMode,catPay
+    homeCoords,catPoints,weeklyTarget,themeMode,accentId,payMode,catPay,
+    // Without these, restored visits in a custom category have no label and
+    // score 0 points in a fresh account.
+    customCats,customTypes
   };
   const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
   const a=document.createElement('a');
@@ -1591,20 +1638,47 @@ async function restoreBackup(evt){
         return;
       }
       if(!confirm('This will ADD the visits/patients from this backup into your current account (it will not delete what you already have). Continue?')) return;
+      // Restoring someone else's backup merges THEIR patients into THIS
+      // account — make that an explicit, named decision.
+      if(data.account && currentUser?.email && data.account.toLowerCase()!==currentUser.email.toLowerCase()){
+        if(!confirm(`Heads up: this backup was exported from ${data.account}, but you're signed in as ${currentUser.email}. Merge it into THIS account anyway?`)) return;
+      }
 
       const uid=currentUser.id;
+      const failures=[]; // tables whose inserts failed — the final toast must not lie
+      // Backup files are the one write path that bypasses the app's own
+      // constrained inputs, so every constrained field is validated here.
+      // status especially: it's rendered into a class ATTRIBUTE, so an
+      // arbitrary string from a crafted "backup" would be a stored XSS.
+      const VALID_STATUS=['pending','confirmed','done','skipped'];
+      const dateOk=s=>/^\d{4}-\d{2}-\d{2}$/.test(s||'');
+      const numOr=(x,fb)=>{const n=Number(x);return isFinite(n)?n:fb;};
       // Re-insert visits under the current account, letting the DB assign new ids
       if(data.visits.length){
-        const rows=data.visits.map(v=>({
-          user_id:uid, num:v.num||1, name:v.name, addr:v.addr, date:v.date, time:v.time,
-          dur:v.dur, type:v.type, cat:v.cat, notes:v.notes||'', status:v.status||'pending', phone:v.phone||'',
-          pay:v.pay??null, needs_details:v.needsDetails??false, lat:v.coords?.lat??null, lng:v.coords?.lng??null
+        const rows=data.visits.filter(v=>v && v.name && dateOk(v.date)).map(v=>({
+          user_id:uid, num:Math.max(1,Math.round(numOr(v.num,1))), name:String(v.name), addr:String(v.addr||''),
+          date:v.date, time:/^([01]\d|2[0-3]):[0-5]\d$/.test(v.time||'')?v.time:'09:00',
+          dur:Math.max(5,Math.min(240,Math.round(numOr(v.dur,30)))),
+          type:String(v.type||''), cat:String(v.cat||''), notes:String(v.notes||''),
+          status:VALID_STATUS.includes(v.status)?v.status:'pending', phone:String(v.phone||''),
+          pay:(v.pay!=null&&isFinite(Number(v.pay)))?Number(v.pay):null, needs_details:!!v.needsDetails,
+          lat:v.coords&&isFinite(Number(v.coords.lat))?Number(v.coords.lat):null,
+          lng:v.coords&&isFinite(Number(v.coords.lng))?Number(v.coords.lng):null
         }));
-        await sb.from('visits').insert(rows);
+        const dropped=data.visits.length-rows.length;
+        if(rows.length){
+          const {error}=await sb.from('visits').insert(rows);
+          if(error) failures.push('visits');
+        }
+        if(dropped&&!failures.includes('visits')) showToast(`⚠️ ${dropped} visit${dropped>1?'s':''} in the file had no name/date and were skipped`);
       }
       if(data.extraPoints?.length){
-        const rows=data.extraPoints.map(e=>({user_id:uid,label:e.label,date:e.date,pts:e.pts}));
-        await sb.from('extra_points').insert(rows);
+        const rows=data.extraPoints.filter(e=>e && e.label && dateOk(e.date) && isFinite(Number(e.pts)))
+          .map(e=>({user_id:uid,label:String(e.label),date:e.date,pts:Number(e.pts)}));
+        if(rows.length){
+          const {error}=await sb.from('extra_points').insert(rows);
+          if(error) failures.push('extra points');
+        }
       }
       // Rebuild the doctor directory first, mapping each backup provider id to the
       // id it lands on in this account. providers.id is a DB identity value, so it
@@ -1618,40 +1692,59 @@ async function restoreBackup(evt){
           const ph=(d.phone||'').trim();
           let match=providers.find(x=>x.name.toLowerCase()===nm.toLowerCase() && (x.phone||'')===ph);
           if(!match){
-            const {data:ins}=await sb.from('providers')
+            const {data:ins,error:provErr}=await sb.from('providers')
               .insert({user_id:uid, name:nm, specialty:(d.specialty||'').trim(), phone:ph, npi:(d.npi||'').trim()})
               .select().single();
-            if(ins){ match={id:ins.id,name:ins.name,specialty:ins.specialty||'',phone:ins.phone||'',npi:ins.npi||''}; providers.push(match); }
+            if(provErr||!ins){ if(!failures.includes('doctors')) failures.push('doctors'); continue; }
+            match={id:ins.id,name:ins.name,specialty:ins.specialty||'',phone:ins.phone||'',npi:ins.npi||''}; providers.push(match);
           }
           if(match && d.id!=null) provIdMap[d.id]=match.id;
         }
       }
       if(data.savedPatients?.length){
         for(const p of data.savedPatients){
-          const row={
-            user_id:uid, name:p.name, addr:p.addr, phone:p.phone??null,
-            cat:p.cat??null, type:p.type??null, dur:p.dur??null,
-            lat:p.coords?.lat??null, lng:p.coords?.lng??null
-          };
-          // Only touch notes/links when the backup actually carries them, so an
-          // older (pre-v3) backup can't wipe notes/doctors already in this account.
+          if(!p || !p.name) continue;
+          const row={user_id:uid, name:String(p.name), addr:String(p.addr||'')};
+          // Only touch fields the backup actually carries, so an older backup
+          // can't null out phone/defaults/notes/doctors already in this account.
+          if(p.phone!=null) row.phone=p.phone;
+          if(p.cat!=null) row.cat=p.cat;
+          if(p.type!=null) row.type=p.type;
+          if(p.dur!=null) row.dur=p.dur;
+          if(p.coords && isFinite(Number(p.coords.lat)) && isFinite(Number(p.coords.lng))){
+            row.lat=Number(p.coords.lat); row.lng=Number(p.coords.lng);
+          }
           if(p.notes!=null) row.notes=p.notes;
           if(Array.isArray(p.providerIds)) row.provider_ids=p.providerIds.map(id=>provIdMap[id]).filter(v=>v!=null);
-          await sb.from('saved_patients').upsert(row,{onConflict:'user_id,name'});
+          const {error}=await sb.from('saved_patients').upsert(row,{onConflict:'user_id,name'});
+          if(error && !failures.includes('saved patients')) failures.push('saved patients');
         }
       }
-      // Restore pay settings so PPV mode + per-category rates survive a restore
-      // (per-visit pay rides along on the visit rows above). Merge rather than
-      // clobber the rest of the current account's settings. Older backups
-      // without these fields leave the current settings untouched.
-      if(data.payMode || data.catPay){
-        if(data.payMode) payMode = data.payMode==='ppv' ? 'ppv' : 'salaried';
-        if(data.catPay && typeof data.catPay==='object') catPay = {...catPay, ...data.catPay};
-        await saveUserSettings();
+      // Restore settings so custom categories/types, point values, target,
+      // home base, and pay rates survive a restore into a fresh account.
+      // Merge rather than clobber; older backups without a field leave the
+      // current value untouched. (Theme/accent are cosmetic — left alone.)
+      let settingsTouched=false;
+      const isObj=x=>x && typeof x==='object' && !Array.isArray(x);
+      if(isObj(data.customCats)){ customCats={...customCats,...data.customCats}; settingsTouched=true; }
+      if(isObj(data.customTypes)){ customTypes={...customTypes,...data.customTypes}; settingsTouched=true; }
+      if(isObj(data.catPoints)){ catPoints={...catPoints,...data.catPoints}; settingsTouched=true; }
+      if(Number(data.weeklyTarget)>0){ weeklyTarget=Number(data.weeklyTarget); settingsTouched=true; }
+      if(data.homeCoords && isFinite(Number(data.homeCoords.lat)) && isFinite(Number(data.homeCoords.lng))){
+        homeCoords={lat:Number(data.homeCoords.lat), lng:Number(data.homeCoords.lng), label:String(data.homeCoords.label||'')};
+        settingsTouched=true;
+      }
+      if(data.payMode){ payMode = data.payMode==='ppv' ? 'ppv' : 'salaried'; settingsTouched=true; }
+      if(isObj(data.catPay)){ catPay={...catPay,...data.catPay}; settingsTouched=true; }
+      if(settingsTouched){
+        applyCustomCatsAndTypes();
+        const ok=await saveUserSettings();
+        if(!ok && !failures.includes('settings')) failures.push('settings');
       }
       await loadAllDataFromSupabase();
       closeAllPanels();renderAll();
-      showToast('✓ Backup data merged into your account');
+      if(failures.length) showToast(`⚠️ Restore incomplete — ${failures.join(', ')} didn't save. Check your connection and try again.`);
+      else showToast('✓ Backup data merged into your account');
     }catch(e){
       showToast('⚠️ Could not read that file — make sure it\'s a Roundly backup .json');
     }
@@ -1766,8 +1859,11 @@ async function removeSavedPatient(name){
     ? `Remove ${name}? This also deletes their saved notes and linked doctors, and can't be undone.`
     : `Remove ${name} from saved patients?`;
   if(!confirm(msg)) return;
+  // Server first: this delete takes notes + doctor links with it and has no
+  // undo, so a silent failure must not leave the UI claiming it happened.
+  const {error}=await sb.from('saved_patients').delete().eq('user_id',currentUser.id).eq('name',name);
+  if(error){ showToast('⚠️ Couldn\'t remove — check connection'); return; }
   savedPatients=savedPatients.filter(p=>p.name!==name);
-  await sb.from('saved_patients').delete().eq('user_id',currentUser.id).eq('name',name);
   renderSavedPatientsArea();
 }
 async function saveSettings(){
@@ -1779,8 +1875,9 @@ async function saveSettings(){
     const p=parseFloat(document.getElementById('spay-'+k)?.value);
     if(!isNaN(p)&&p>=0){ catPay[k]=p; }
   });
-  await saveUserSettings();
-  buildCatDropdown();closeAllPanels();renderAll();showToast('✓ Settings saved!');
+  const ok=await saveUserSettings(); // it toasts its own failure reason
+  buildCatDropdown();closeAllPanels();renderAll();
+  if(ok) showToast('✓ Settings saved!');
 }
 // Reflect the current pay mode across the UI: Settings toggle + rate editor
 // visibility, and the visit form's pay field. renderStats handles the header
@@ -1928,9 +2025,9 @@ const osrmCache=new Map(); // routeKey → {miles, legMiles[], geometry[[lat,lng
 function routeKeyFor(coordList){
   return coordList.map(c=>c.lat.toFixed(5)+','+c.lng.toFixed(5)).join(';');
 }
-// Home → stops in driving order → home, pinned visits only.
+// Home → stops in driving order → home, pinned non-skipped visits only.
 function currentRouteCoords(){
-  const stops=routeVisits(listSelectedDate).filter(v=>v.coords);
+  const stops=drivingVisits(listSelectedDate).filter(v=>v.coords);
   if(!stops.length) return null;
   return [homeCoords,...stops.map(v=>v.coords),homeCoords];
 }
@@ -1940,8 +2037,12 @@ async function osrmRoute(coordList){
   if(osrmCache.has(key)) return osrmCache.get(key);
   const coords=coordList.map(c=>c.lng+','+c.lat).join(';');
   const url=`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=false`;
+  // Timeout: a hung mobile fetch would otherwise pin roadRouteFetching for
+  // minutes and block every retry for the day.
+  const ctrl=new AbortController();
+  const tid=setTimeout(()=>ctrl.abort(),12000);
   try{
-    const r=await fetch(url);
+    const r=await fetch(url,{signal:ctrl.signal});
     if(!r.ok) return null;
     const j=await r.json();
     const route=j?.routes?.[0];
@@ -1955,6 +2056,7 @@ async function osrmRoute(coordList){
     osrmCache.set(key,result);
     return result;
   }catch(e){ return null; }
+  finally{ clearTimeout(tid); }
 }
 // Road data for the selected day, or null if not (yet) fetched / stale.
 function roadData(){
@@ -1977,7 +2079,10 @@ async function refreshRoadRoute(){
   if(roadRouteFailed.key===key && Date.now()-roadRouteFailed.at<60000) return;
   roadRouteFetching=key;
   const data=await osrmRoute(list);
-  roadRouteFetching=null;
+  // Only clear our OWN marker — if the user changed dates mid-fetch, a newer
+  // fetch owns roadRouteFetching now and nulling it would let a duplicate
+  // request for that key launch.
+  if(roadRouteFetching===key) roadRouteFetching=null;
   if(!data){ roadRouteFailed={key,at:Date.now()}; return; }
   const cur=currentRouteCoords();
   if(cur && routeKeyFor(cur)===key){
@@ -1985,14 +2090,15 @@ async function refreshRoadRoute(){
     renderStats();renderList();
     if(currentView==='map')updateMapMarkers();
     if(currentView==='summary')renderSummary();
+    if(driveIsOpen())renderDriveMode(); // Drive Mode shows leg miles too
   }
 }
 // Miles for the leg ENDING at visit v (from home or the previous pinned stop),
 // in the day's driving order. Road distance when available, haversine estimate
 // otherwise. Returns {miles, fromBase} or null for unpinned visits.
 function legInfoFor(v){
-  const route=routeVisits(v.date).filter(x=>x.coords);
-  const ri=route.findIndex(x=>x.id===v.id);
+  const route=drivingVisits(v.date).filter(x=>x.coords);
+  const ri=route.findIndex(x=>x.id===v.id); // skipped/unpinned visits → no leg
   if(ri<0) return null;
   const rd=(v.date===listSelectedDate)?roadData():null;
   const miles=(rd&&rd.legMiles[ri]!=null)
@@ -2010,12 +2116,17 @@ async function upsertSavedPatient(name,addr,coords,cat,type,dur,phone){
   if(existing){existing.addr=addr;existing.coords=coords;existing.cat=cat??null;existing.type=type??null;existing.dur=dur??null;if(ph)existing.phone=ph;}
   else savedPatients.push({name,addr,coords,cat:cat??null,type:type??null,dur:dur??null,phone:ph||'',notes:'',providerIds:[]});
   const row={
-    user_id:currentUser.id, name, addr,
+    // The unique key (user_id,name) is case-SENSITIVE in Postgres while the
+    // lookup above is case-insensitive — write under the already-stored
+    // casing, or "john smith" would create a second row and strand the
+    // existing "John Smith" row's notes and doctor links.
+    user_id:currentUser.id, name:existing?existing.name:name, addr,
     cat:cat??null, type:type??null, dur:dur??null,
     lat:coords?.lat??null, lng:coords?.lng??null
   };
   if(ph) row.phone=ph; // only overwrite the stored phone when we actually have one
-  await sb.from('saved_patients').upsert(row,{onConflict:'user_id,name'});
+  const {error}=await sb.from('saved_patients').upsert(row,{onConflict:'user_id,name'});
+  if(error) showToast('⚠️ Couldn\'t sync patient info — check connection');
 }
 
 // ─── DOCTORS + CLIENT NOTES (reference, not charting) ─────────────────────────
@@ -2040,17 +2151,48 @@ function patientDoctors(name){
   return p.providerIds.map(id=>providers.find(d=>d.id===id)).filter(Boolean);
 }
 // Save the client's persistent notes. Targeted upsert (name + notes only) so it
-// never clobbers the patient's address/phone/etc.
+// never clobbers the patient's address/phone/etc. These notes may be dictated
+// once in a driveway and never re-typed — a failed save must be VISIBLE.
+let pdNotesTimer=null;
+let patientsLoaded=false; // saved_patients read cleanly this session (see loadAllDataFromSupabase)
+function setPdSaveState(txt){
+  const el=document.getElementById('pd-save-state');
+  if(el) el.textContent=txt;
+}
 async function saveClientNotes(name,notes){
+  if(!patientsLoaded){
+    setPdSaveState('⚠️ Not saved');
+    showToast('⚠️ Patients didn\'t load — refresh before editing notes (saving now could overwrite them)');
+    return false;
+  }
   const p=getOrInitPatient(name);
   p.notes=notes;
+  setPdSaveState('Saving…');
   // addr is included (never null; NOT NULL column) so a first-time insert for a
   // patient not yet saved succeeds; for an existing row it rewrites the same value.
-  await sb.from('saved_patients').upsert(
+  const {error}=await sb.from('saved_patients').upsert(
     {user_id:currentUser.id, name:p.name, addr:p.addr||'', notes},
     {onConflict:'user_id,name'}
   );
+  if(error){
+    setPdSaveState('⚠️ Not saved');
+    showToast('⚠️ Couldn\'t save notes — check connection before closing');
+    return false;
+  }
+  setPdSaveState('✓ Saved');
+  return true;
 }
+// Immediately persist any pending notes edit — called when the PWA is
+// backgrounded/killed mid-dictation, where blur/close events never fire.
+function flushPatientNotes(){
+  if(!pdState.name) return;
+  if(pdNotesTimer){ clearTimeout(pdNotesTimer); pdNotesTimer=null; }
+  capturePatientNotes();
+  const p=findPatient(pdState.name);
+  if(p) saveClientNotes(p.name, p.notes||'');
+}
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden') flushPatientNotes(); });
+window.addEventListener('pagehide',flushPatientNotes);
 // Insert a provider into the shared directory and return it (with its new id).
 // Dedupes on name+phone so the same office isn't stored twice.
 async function addProvider({name,specialty,phone,npi}){
@@ -2069,19 +2211,23 @@ async function addProvider({name,specialty,phone,npi}){
 async function linkDoctorToPatient(name,providerId){
   const p=getOrInitPatient(name);
   if(p.providerIds.includes(providerId)) return;
+  const prev=p.providerIds;
   p.providerIds=[...p.providerIds, providerId];
-  await sb.from('saved_patients').upsert(
+  const {error}=await sb.from('saved_patients').upsert(
     {user_id:currentUser.id, name:p.name, addr:p.addr||'', provider_ids:p.providerIds},
     {onConflict:'user_id,name'}
   );
+  if(error){ p.providerIds=prev; renderPatientSheet(); showToast('⚠️ Couldn\'t link doctor — check connection'); }
 }
 async function unlinkDoctorFromPatient(name,providerId){
   const p=findPatient(name); if(!p) return;
+  const prev=p.providerIds;
   p.providerIds=p.providerIds.filter(id=>id!==providerId);
-  await sb.from('saved_patients').upsert(
+  const {error}=await sb.from('saved_patients').upsert(
     {user_id:currentUser.id, name:p.name, addr:p.addr||'', provider_ids:p.providerIds},
     {onConflict:'user_id,name'}
   );
+  if(error){ p.providerIds=prev; renderPatientSheet(); showToast('⚠️ Couldn\'t remove doctor — check connection'); }
 }
 // Search the national NPI (NPPES) registry via the Netlify proxy (the browser
 // can't call NPPES directly — no CORS). Returns a normalized list. The proxy
@@ -2498,7 +2644,19 @@ async function setHomeBase(){
 }
 
 // ─── ADD / EDIT VISIT ─────────────────────────────────────────────────────────
+// Busy-guard wrapper: the save can sit on a multi-second geocode (Photon
+// ladder + 7s Census timeout) — without this, a double-tap inserts the visit
+// twice and the button looks dead while it works.
+let submitBusy=false;
 async function submitVisitForm(){
+  if(submitBusy) return;
+  const btn=document.getElementById('f-submit-btn');
+  const prevLabel=btn.textContent;
+  submitBusy=true; btn.disabled=true; btn.textContent='Saving…';
+  try{ await doSubmitVisitForm(); }
+  finally{ submitBusy=false; btn.disabled=false; btn.textContent=prevLabel; }
+}
+async function doSubmitVisitForm(){
   const editId=document.getElementById('f-edit-id').value;
   const name=document.getElementById('f-name').value.trim();
   const addr=document.getElementById('f-addr').value.trim();
@@ -2540,11 +2698,19 @@ async function submitVisitForm(){
     const v=visits.find(v=>v.id===parseInt(editId));
     if(!v){showToast('Visit not found');closeAllPanels();return;}
     const finalCoords=coords||v.coords;
-    Object.assign(v,{name,addr,date,time,dur,type,cat,notes,phone,pay:payVal,needsDetails:false,coords:finalCoords});
-    await sb.from('visits').update({
-      name,addr,date,time,dur,type,cat,notes,phone,pay:payVal,needs_details:false,
+    const oldDate=v.date;
+    // Moving to a different day: slot at the END of the target day so its num
+    // can't collide with an existing (possibly optimized) position there.
+    const newNum=(date!==oldDate)?visits.filter(x=>x.date===date&&x.id!==v.id).length+1:v.num;
+    // Write first, mutate local state only on success — otherwise the card
+    // shows the edit, the toast says saved, and it all reverts on next load.
+    const {error:updErr}=await sb.from('visits').update({
+      name,addr,date,time,dur,type,cat,notes,phone,pay:payVal,needs_details:false,num:newNum,
       lat:finalCoords?.lat??null, lng:finalCoords?.lng??null
     }).eq('id',v.id).eq('user_id',currentUser.id);
+    if(updErr){showToast('⚠️ Couldn\'t save changes — check connection and try again');return;}
+    Object.assign(v,{name,addr,date,time,dur,type,cat,notes,phone,pay:payVal,needsDetails:false,coords:finalCoords,num:newNum});
+    if(date!==oldDate) await renumberDay(oldDate); // close the gap left behind
     await upsertSavedPatient(name,addr,finalCoords,cat,type,dur,phone);
     resetForm();closeAllPanels();
     showToast(`✓ ${name} updated — ${pts} pts`);renderAll();
@@ -2612,31 +2778,38 @@ async function deleteFromEditPanel(){
 }
 
 // ─── VISIT ACTIONS ────────────────────────────────────────────────────────────
+// Optimistic status toggle: flip locally for instant feedback, then sync; on
+// failure REVERT the local flip (a toast alone would leave the UI permanently
+// claiming a state the DB doesn't have).
+async function setVisitStatus(id,next){
+  const v=visits.find(v=>v.id===id);
+  if(!v) return;
+  const prev=v.status;
+  v.status=next;
+  renderAll();
+  const {error}=await sb.from('visits').update({status:next}).eq('id',id).eq('user_id',currentUser.id);
+  if(error){
+    v.status=prev;
+    renderAll();
+    showToast('⚠️ Couldn\'t sync that change — check connection');
+  }
+}
 async function markDone(id){
   const v=visits.find(v=>v.id===id);
   if(!v) return;
-  v.status=(v.status==='done')?'pending':'done';
-  renderAll();
-  const {error}=await sb.from('visits').update({status:v.status}).eq('id',id).eq('user_id',currentUser.id);
-  if(error) showToast('⚠️ Couldn\'t sync — check connection');
+  await setVisitStatus(id,(v.status==='done')?'pending':'done');
 }
 async function markSkip(id){
   const v=visits.find(v=>v.id===id);
   if(!v) return;
-  v.status=(v.status==='skipped')?'pending':'skipped';
-  renderAll();
-  const {error}=await sb.from('visits').update({status:v.status}).eq('id',id).eq('user_id',currentUser.id);
-  if(error) showToast('⚠️ Couldn\'t sync — check connection');
+  await setVisitStatus(id,(v.status==='skipped')?'pending':'skipped');
 }
 // Confirmed = patient confirmed the appointment. Still counts for points and
 // stays in the route (unlike skipped); just a distinct pre-visit state.
 async function markConfirmed(id){
   const v=visits.find(v=>v.id===id);
   if(!v) return;
-  v.status=(v.status==='confirmed')?'pending':'confirmed';
-  renderAll();
-  const {error}=await sb.from('visits').update({status:v.status}).eq('id',id).eq('user_id',currentUser.id);
-  if(error) showToast('⚠️ Couldn\'t sync — check connection');
+  await setVisitStatus(id,(v.status==='confirmed')?'pending':'confirmed');
 }
 // ─── QUICK TEXTS ──────────────────────────────────────────────────────────────
 // One-tap SMS presets a clinician sends constantly ("On my way", "Running late").
@@ -2692,6 +2865,7 @@ function capturePatientNotes(){
 function closePatientSheet(persist){
   const el=document.getElementById('pd-backdrop');
   if(el){
+    if(pdNotesTimer){ clearTimeout(pdNotesTimer); pdNotesTimer=null; }
     capturePatientNotes();
     const p=findPatient(pdState.name);
     if(persist && p) saveClientNotes(p.name, p.notes||'');
@@ -2768,7 +2942,7 @@ function renderPatientSheet(){
     ${docsHtml}
     ${pdState.adding?'':`<button class="pd-add-toggle" data-pd-add="1">＋ Add doctor</button>`}
     ${addHtml}
-    <div class="pd-section-lbl">📝 Notes <span class="pd-hint">— dictate with your keyboard mic</span></div>
+    <div class="pd-section-lbl">📝 Notes <span class="pd-hint">— dictate with your keyboard mic</span> <span id="pd-save-state" class="pd-hint"></span></div>
     <textarea class="pd-notes" id="pd-notes" placeholder="Anything to remember for this client (reference only — not charting)">${escAttr(notes)}</textarea>
     <button class="qt-item qt-cancel" data-pd-close="1">Done</button>
   </div>`;
@@ -2826,10 +3000,20 @@ async function addDoctorFromSheet(r){
 }
 function onPatientSheetInput(e){
   if(e.target.id==='pd-search'){ pdState.query=e.target.value; }
-  else if(e.target.id==='pd-notes'){ const p=getOrInitPatient(pdState.name); p.notes=e.target.value; }
+  else if(e.target.id==='pd-notes'){
+    const p=getOrInitPatient(pdState.name); p.notes=e.target.value;
+    // Debounced autosave: blur/close alone loses dictated notes when the PWA
+    // is swiped away mid-edit.
+    if(pdNotesTimer) clearTimeout(pdNotesTimer);
+    setPdSaveState('');
+    pdNotesTimer=setTimeout(()=>{ pdNotesTimer=null; saveClientNotes(pdState.name, p.notes); },1500);
+  }
 }
 function onPatientSheetChange(e){
-  if(e.target.id==='pd-notes'){ saveClientNotes(pdState.name, e.target.value); }
+  if(e.target.id==='pd-notes'){
+    if(pdNotesTimer){ clearTimeout(pdNotesTimer); pdNotesTimer=null; }
+    saveClientNotes(pdState.name, e.target.value);
+  }
 }
 function onPatientSheetKey(e){
   if(e.target.id==='pd-search' && e.key==='Enter'){ e.preventDefault(); runNpiSearch(); }
@@ -2840,7 +3024,7 @@ function onPatientSheetKey(e){
 // buttons and inline status controls; marking Done or Skip auto-advances.
 let driveIndex=0, driveDate=null;
 function driveIsOpen(){return document.getElementById('drive-mode').classList.contains('open');}
-function driveRoute(){return routeVisits(driveDate||listSelectedDate);}
+function driveRoute(){return drivingVisits(driveDate||listSelectedDate);}
 function driveCurrent(){return driveRoute()[driveIndex]||null;}
 function enterDriveMode(){
   driveDate=listSelectedDate;
@@ -2873,9 +3057,13 @@ function driveAction(kind){
   if(kind==='nav') navTo(v.id);
   else if(kind==='text') openQuickText(v.id);
   else if(kind==='call'){const ph=(v.phone||'').replace(/[^\d+]/g,'');if(ph)window.location.href='tel:'+ph;}
-  else if(kind==='confirm') markConfirmed(v.id);
+  // Confirm only makes sense pre-visit — a stray tap must not demote a done
+  // visit or resurrect a skipped one into the totals.
+  else if(kind==='confirm'){if(v.status==='pending'||v.status==='confirmed')markConfirmed(v.id);}
   else if(kind==='done'){const wasDone=v.status==='done';markDone(v.id);if(!wasDone)driveAdvance();}
-  else if(kind==='skip'){const wasSkip=v.status==='skipped';markSkip(v.id);if(!wasSkip)driveAdvance();}
+  // Skipping removes the stop from the driving order, so the SAME index now
+  // shows the next stop — advancing too would skip past one.
+  else if(kind==='skip'){markSkip(v.id);}
 }
 const DM_STATUS={pending:['Pending','var(--amber-bg)','var(--amber)'],confirmed:['✓ Confirmed','var(--blue-bg)','var(--blue)'],done:['✓ Done','var(--teal-bg)','var(--teal)'],skipped:['Skipped','var(--gray-100)','var(--gray-600)']};
 function renderDriveMode(){
@@ -2935,29 +3123,38 @@ function renderDriveMode(){
       <button onclick="driveGo(1)" ${driveIndex===total-1?'disabled':''}>Next ›</button>
     </div>`;
 }
+// Reassign a day's visit nums 1..n following its current DRIVING order
+// (routeVisits — num order on optimized days, time order otherwise), locally
+// and in the DB. Never renumber from raw array order: `visits` loads in id
+// (creation) order, which would silently destroy an optimized route.
+async function renumberDay(date){
+  const sameDay=routeVisits(date);
+  sameDay.forEach((x,i)=>x.num=i+1);
+  for(const sv of sameDay){
+    const {error}=await sb.from('visits').update({num:sv.num}).eq('id',sv.id).eq('user_id',currentUser.id);
+    if(error){showToast('⚠️ Couldn\'t sync visit order — check connection');break;}
+  }
+}
 async function deleteVisit(id){
   const v=visits.find(x=>x.id===id);
   if(!v) return false;
-  // No blocking confirm — delete immediately and offer a 6s Undo instead.
+  // No blocking confirm — delete and offer a 6s Undo instead. Server first:
+  // an optimistic local delete + failed DB delete + Undo would duplicate the
+  // visit (the original row still in the DB plus a fresh Undo insert).
   const snap={...v, coords:v.coords?{...v.coords}:null};
   const date=v.date;
-  visits=visits.filter(x=>x.id!==id);
-  visits.filter(x=>x.date===date).forEach((x,i)=>x.num=i+1);
-  renderAll();
   const {error}=await sb.from('visits').delete().eq('id',id).eq('user_id',currentUser.id);
-  if(error) showToast('⚠️ Couldn\'t sync delete — check connection');
-  // Renumber remaining same-day visits server-side too, so ordering stays correct
-  const sameDay=visits.filter(x=>x.date===date);
-  for(const sv of sameDay){
-    await sb.from('visits').update({num:sv.num}).eq('id',sv.id).eq('user_id',currentUser.id);
-  }
+  if(error){showToast('⚠️ Couldn\'t delete — check connection and try again');return false;}
+  visits=visits.filter(x=>x.id!==id);
+  renderAll();
+  await renumberDay(date);
   showUndoToast(`Deleted ${snap.name}`, ()=>restoreDeletedVisit(snap));
   return true;
 }
-// Re-insert a just-deleted visit (new row id) with all its fields intact.
+// Re-insert a just-deleted visit (new row id) with all its fields intact,
+// back at (or near) its old spot in the day's order via its saved num.
 async function restoreDeletedVisit(snap){
-  const date=snap.date;
-  const num=visits.filter(x=>x.date===date).length+1;
+  const num=snap.num||visits.filter(x=>x.date===snap.date).length+1;
   const {data,error}=await sb.from('visits').insert({
     user_id:currentUser.id, num, name:snap.name, addr:snap.addr, date:snap.date, time:snap.time,
     dur:snap.dur, type:snap.type, cat:snap.cat, notes:snap.notes||'', status:snap.status||'pending',
@@ -2972,6 +3169,7 @@ async function restoreDeletedVisit(snap){
     coords:(data.lat!=null&&data.lng!=null)?{lat:data.lat,lng:data.lng}:null
   });
   renderAll();
+  await renumberDay(data.date); // resolve any num collision from the re-insert
   showToast(`↩️ Restored ${data.name}`);
 }
 function navTo(id){
@@ -2988,7 +3186,14 @@ function openExtraPanel(){
   document.getElementById('extra-panel').classList.add('open');
   document.getElementById('overlay').classList.add('open');
 }
+let extraBusy=false; // double-tap guard (same duplicate-insert risk as visits)
 async function addExtraPoints(){
+  if(extraBusy) return;
+  extraBusy=true;
+  try{ await doAddExtraPoints(); }
+  finally{ extraBusy=false; }
+}
+async function doAddExtraPoints(){
   const label=document.getElementById('ex-label').value.trim();
   const date=document.getElementById('ex-date').value||todayStr();
   const pts=parseFloat(document.getElementById('ex-pts').value);
@@ -3002,9 +3207,11 @@ async function addExtraPoints(){
   closeAllPanels();showToast(`⭐ Added ${pts} pts — ${label}`);renderAll();
 }
 async function deleteExtraPoint(id){
+  const snap=extraPoints.find(e=>e.id===id);
   extraPoints=extraPoints.filter(e=>e.id!==id);
   renderAll();
-  await sb.from('extra_points').delete().eq('id',id).eq('user_id',currentUser.id);
+  const {error}=await sb.from('extra_points').delete().eq('id',id).eq('user_id',currentUser.id);
+  if(error && snap){ extraPoints.push(snap); renderAll(); showToast('⚠️ Couldn\'t delete — check connection'); }
 }
 
 // ─── SORT + DATE NAVIGATION FOR VISITS TAB ────────────────────────────────────
@@ -3018,7 +3225,7 @@ function getSorted(){
   const v=[...visits.filter(x=>x.date===listSelectedDate)];
   if(sortMode==='time'){v.sort((a,b)=>a.time.localeCompare(b.time));if(visitNumDir==='desc')v.reverse();}
   else if(sortMode==='num')v.sort((a,b)=>a.num-b.num);
-  else{const o={pending:0,done:1,skipped:2};v.sort((a,b)=>(o[a.status]||0)-(o[b.status]||0));}
+  else{const o={pending:0,confirmed:1,done:2,skipped:3};v.sort((a,b)=>(o[a.status]??0)-(o[b.status]??0));}
   return v;
 }
 // The number shown on a visit's map pin / list bubble is its position in the
@@ -3026,7 +3233,8 @@ function getSorted(){
 // "Optimize Route"), flippable via the direction toggle. Derived on the fly so
 // it's always correct and needs no database writes.
 function visitNumber(v){
-  const arr=routeVisits(v.date);
+  if(v.status==='skipped') return '–'; // not part of the driving order
+  const arr=drivingVisits(v.date);
   if(visitNumDir==='desc')arr.reverse();
   return arr.findIndex(x=>x.id===v.id)+1;
 }
@@ -3071,10 +3279,17 @@ function routeVisits(dateStr){
   else arr.sort((a,b)=>a.time.localeCompare(b.time)||a.num-b.num);
   return arr;
 }
+// The stops actually being DRIVEN: the day's driving order minus skipped
+// visits. Mileage, the OSRM request, the route line, per-leg distances, pin
+// numbers, and Drive Mode all use this — a skipped visit stays in the list
+// but contributes no driving.
+function drivingVisits(dateStr){
+  return routeVisits(dateStr).filter(v=>v.status!=='skipped');
+}
 function calcTotalMiles(){
   const rd=roadData();
   if(rd) return rd.miles;
-  const s=routeVisits(listSelectedDate).filter(v=>v.coords);
+  const s=drivingVisits(listSelectedDate).filter(v=>v.coords);
   if(!s.length)return 0;
   let t=0,prev=homeCoords;
   for(const v of s){t+=haversine(prev,v.coords);prev=v.coords;}
@@ -3096,7 +3311,7 @@ function tourMiles(arr){
 // Returns 0 when the day hasn't been optimized or has fewer than 2 pinned stops.
 function estSavedMiles(dateStr){
   if(!optimizedDates[dateStr]) return 0;
-  const day=visits.filter(v=>v.date===dateStr && v.coords);
+  const day=visits.filter(v=>v.date===dateStr && v.coords && v.status!=='skipped');
   if(day.length<2) return 0;
   const optOrder=day.slice().sort((a,b)=>a.num-b.num||a.time.localeCompare(b.time));
   const timeOrder=day.slice().sort((a,b)=>a.time.localeCompare(b.time)||a.num-b.num);
@@ -3145,6 +3360,10 @@ function twoOptImprove(order){
 async function optimizeRoute(){
   const ld=listSelectedDate;
   let today=visits.filter(v=>v.date===ld),other=visits.filter(v=>v.date!==ld);
+  // Skipped visits aren't driven — leave them out of the tour entirely and
+  // park them at the end of the day's numbering.
+  const skippedToday=today.filter(v=>v.status==='skipped');
+  today=today.filter(v=>v.status!=='skipped');
   if(today.length<2){showToast('Add more visits to optimize');return;}
   let rem=[...today],order=[],cur=homeCoords;
   while(rem.length){
@@ -3156,7 +3375,7 @@ async function optimizeRoute(){
   // Visits without a map pin can't be routed — keep them at the END of the
   // order instead of silently dropping them from the local list.
   const unpinned=rem;
-  order=order.concat(unpinned);
+  order=order.concat(unpinned).concat(skippedToday);
   // From now on this day's driving order follows the optimized numbering
   // (routeVisits checks this flag; device-local preference).
   optimizedDates[ld]=true;
@@ -3179,7 +3398,7 @@ async function optimizeRoute(){
   if(syncFailed) showToast('⚠️ Couldn\'t sync new order — check connection');
 }
 function openFullRoute(){
-  const sorted=routeVisits(listSelectedDate).filter(v=>v.coords);
+  const sorted=drivingVisits(listSelectedDate).filter(v=>v.coords);
   if(!sorted.length){showToast('No visits to map');return;}
   const wps=sorted.map(v=>encodeURIComponent(v.addr)).join('|');
   window.open(`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(homeCoords.label)}&destination=${encodeURIComponent(homeCoords.label)}&waypoints=${wps}&travelmode=driving`,'_blank');
@@ -3212,7 +3431,9 @@ function setCalMode(mode){
   renderCalendar();
 }
 function calNav(dir){
-  if(calMode==='month') calRefDate.setMonth(calRefDate.getMonth()+dir);
+  // Clamp to the 1st before month math: from Jan 31, setMonth(+1) lands on
+  // "Feb 31" → Mar 3, skipping February entirely.
+  if(calMode==='month'){ calRefDate.setDate(1); calRefDate.setMonth(calRefDate.getMonth()+dir); }
   else calRefDate.setDate(calRefDate.getDate()+dir*7);
   renderCalendar();
 }
@@ -3323,7 +3544,7 @@ function setLayerOnMap(name){
 function makePin(v){
   const color=v.status==='done'?'#0E7C66':v.status==='confirmed'?'#1D4ED8':v.status==='skipped'?'#888':'#A85A0E';
   // Highlight the next pending stop in the driving order
-  const nextPending=routeVisits(v.date).find(x=>(x.status==='pending'||x.status==='confirmed')&&x.coords);
+  const nextPending=drivingVisits(v.date).find(x=>(x.status==='pending'||x.status==='confirmed')&&x.coords);
   const isNext=!!nextPending&&nextPending.id===v.id;
   return L.divIcon({html:`<div class="marker-pin${isNext?' next-stop':''}" style="background:${color}">${visitNumber(v)}</div>`,className:'',iconSize:[28,28],iconAnchor:[14,14],popupAnchor:[0,-16]});
 }
@@ -3343,6 +3564,7 @@ function updateMapMarkers(){
     .addTo(group);
   sorted.forEach(v=>{
     if(!v.coords)return;
+    const isSkipped=v.status==='skipped';
     const pts=getPoints(v);
     L.marker([v.coords.lat,v.coords.lng],{icon:makePin(v)})
       .bindPopup(`<div class="lf-popup">
@@ -3363,7 +3585,7 @@ function updateMapMarkers(){
         <button class="btn-nav" data-action="nav" data-id="${v.id}">🧭 Navigate here</button>
       </div>`,{maxWidth:260})
       .addTo(group);
-    routeCoords.push([v.coords.lat,v.coords.lng]);
+    if(!isSkipped) routeCoords.push([v.coords.lat,v.coords.lng]); // skipped: pin stays, route line doesn't detour
   });
   if(routeCoords.length>1)routeCoords.push([homeCoords.lat,homeCoords.lng]);
   // Solid road-following line when OSRM data is available; dashed straight
@@ -3425,7 +3647,7 @@ function renderList(){
   // in the list below (this is a highlight, not a replacement).
   let heroHtml='';
   if(listSelectedDate===todayStr()){
-    const route=routeVisits(todayStr());
+    const route=drivingVisits(todayStr()); // skipped stops don't count toward "route done"
     const next=route.find(v=>v.status==='pending'||v.status==='confirmed');
     if(next){
       const nd=legOf(next);
@@ -3624,10 +3846,11 @@ function renderSummary(){
   const pend=visits.filter(v=>v.date===listSelectedDate&&v.status==='pending').length;
   const skip=visits.filter(v=>v.date===listSelectedDate&&v.status==='skipped').length;
   const todayPts=calcDayPoints(listSelectedDate);
-  const weekPts=calcWeekPoints(0);
+  const wOff=weekOffsetFor(listSelectedDate); // the week THIS day belongs to
+  const weekPts=calcWeekPoints(wOff);
   const ppv=isPPV();
   const dayPay=calcDayPay(listSelectedDate);
-  const weekPay=calcWeekPay(0);
+  const weekPay=calcWeekPay(wOff);
   const breakdown=sorted.map((v,i)=>{
     const li=legInfoFor(v);
     const dist=li?li.miles.toFixed(1):'-';
@@ -3645,7 +3868,7 @@ function renderSummary(){
       <div class="summary-row"><span class="s-label">Week points</span><span class="s-val" style="color:var(--purple)">⭐ ${weekPts.toFixed(2)} / ${weeklyTarget}</span></div>
       ${ppv?`<div class="summary-row"><span class="s-label">This day's pay</span><span class="s-val" style="color:var(--green)">${fmtMoney(dayPay)}</span></div>
       <div class="summary-row"><span class="s-label">Week pay</span><span class="s-val" style="color:var(--green)">${fmtMoney(weekPay)}</span></div>`:''}
-      <div class="summary-row"><span class="s-label">Patients this day</span><span class="s-val">${sorted.length}</span></div>
+      <div class="summary-row"><span class="s-label">Patients this day</span><span class="s-val">${sorted.length-skip}</span></div>
       <div class="summary-row"><span class="s-label">Completed</span><span class="s-val" style="color:var(--teal)">${done}</span></div>
       ${conf?`<div class="summary-row"><span class="s-label">Confirmed</span><span class="s-val" style="color:var(--blue)">${conf}</span></div>`:''}
       <div class="summary-row"><span class="s-label">Pending</span><span class="s-val" style="color:var(--amber)">${pend}</span></div>
@@ -3659,10 +3882,11 @@ function renderSummary(){
 function exportSummary(){
   const sorted=routeVisits(listSelectedDate);const mi=calcTotalMiles();const d=new Date(listSelectedDate+'T12:00:00');
   const todayPts=calcDayPoints(listSelectedDate);
-  const weekPts=calcWeekPoints(0);
+  const wOff=weekOffsetFor(listSelectedDate); // the week THIS day belongs to
+  const weekPts=calcWeekPoints(wOff);
   const ppv=isPPV();
   const dayPay=calcDayPay(listSelectedDate);
-  const weekPay=calcWeekPay(0);
+  const weekPay=calcWeekPay(wOff);
   const payLine=ppv?` | Pay: ${fmtMoney(dayPay)}`:'';
   let txt=`ROUNDLY — DAILY ROUTE SUMMARY\n${d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}\n`;
   txt+=`Starting from: ${homeCoords.label}\nMileage: ${mi.toFixed(1)} mi (${milesAreRoad()?'road distance':'straight-line estimate'})\n`;

@@ -1244,6 +1244,17 @@ async function initAuthFlow(){
     await onSignedIn(session.user);
   } else {
     document.getElementById('signin-screen').style.display='flex';
+    // A failed OAuth redirect lands back here with the reason in the URL
+    // (hash or query) — show it instead of silently re-presenting the
+    // sign-in button, so a person it fails for can tell us why.
+    const authErr = new URLSearchParams(location.hash.slice(1)).get('error_description')
+                 || new URLSearchParams(location.search).get('error_description');
+    if(authErr){
+      history.replaceState(null,'',location.pathname);
+      const el=document.getElementById('signin-error');
+      el.textContent='Sign-in failed: '+authErr;
+      el.classList.add('show');
+    }
   }
   // Keep listening in case auth state changes later (sign out elsewhere, token refresh, etc.)
   sb.auth.onAuthStateChange(async (event, session)=>{

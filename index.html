@@ -3178,6 +3178,23 @@ function openQuickText(id){
 // read/dictate persistent notes to glance at while charting elsewhere. Opens
 // from a visit card. All data lives on saved_patients + the providers directory.
 let pdState={name:null, adding:false, query:'', results:null, searching:false, error:''};
+let pdSearchTimer=null, pdSearchSeq=0;
+// Just the doctor-search results markup, rendered into #pd-results on its own so
+// live typing can refresh results WITHOUT rebuilding (and refocusing) the input.
+function pdResultsHtml(){
+  if(pdState.searching) return `<div class="pd-note">Searching the national NPI registry…</div>`;
+  if(pdState.error) return `<div class="pd-note">${escAttr(pdState.error)}</div>`;
+  if(!pdState.results) return '';
+  if(!pdState.results.length) return `<div class="pd-note">No matches with a listed phone. Add by hand below.</div>`;
+  return pdState.results.map((r,i)=>`<button class="pd-result" data-pd-pick="${i}">
+      <div class="pd-doc-name">${escAttr(r.name)}</div>
+      <div class="pd-doc-sub">${escAttr([r.specialty,r.city,r.phone].filter(Boolean).join(' · '))}</div>
+    </button>`).join('');
+}
+function renderPdResults(){
+  const el=document.getElementById('pd-results');
+  if(el) el.innerHTML=pdResultsHtml();
+}
 // Read the notes textarea into memory (no network) so a re-render never loses
 // in-progress typing. Network save happens on blur (change) and on close.
 function capturePatientNotes(){
@@ -3233,23 +3250,12 @@ function renderPatientSheet(){
 
   let addHtml='';
   if(pdState.adding){
-    let resultsHtml='';
-    if(pdState.searching) resultsHtml=`<div class="pd-note">Searching the national NPI registry…</div>`;
-    else if(pdState.error) resultsHtml=`<div class="pd-note">${escAttr(pdState.error)}</div>`;
-    else if(pdState.results){
-      resultsHtml = pdState.results.length
-        ? pdState.results.map((r,i)=>`<button class="pd-result" data-pd-pick="${i}">
-            <div class="pd-doc-name">${escAttr(r.name)}</div>
-            <div class="pd-doc-sub">${escAttr([r.specialty,r.city,r.phone].filter(Boolean).join(' · '))}</div>
-          </button>`).join('')
-        : `<div class="pd-note">No matches with a listed phone. Add by hand below.</div>`;
-    }
     addHtml=`<div class="pd-add">
       <div class="pd-add-row">
-        <input class="form-input pd-input" id="pd-search" placeholder="Doctor or practice name…" value="${escAttr(pdState.query||'')}" autocomplete="off">
-        <button class="pd-btn" data-pd-do-search="1">🔎 Search</button>
+        <input class="form-input pd-input" id="pd-search" placeholder="Type a doctor or practice name…" value="${escAttr(pdState.query||'')}" autocomplete="off">
+        <button class="pd-btn" data-pd-do-search="1">🔎</button>
       </div>
-      ${resultsHtml}
+      <div id="pd-results">${pdResultsHtml()}</div>
       <div class="pd-manual-lbl">or add by hand</div>
       <div class="pd-add-row">
         <input class="form-input pd-input pd-grow" id="pd-man-name" placeholder="Doctor / office name" autocomplete="off">
@@ -3278,22 +3284,23 @@ function renderPatientSheet(){
     <button class="qt-item qt-cancel" data-pd-close="1">Done</button>
   </div>`;
 }
+// Live doctor lookup. Updates ONLY #pd-results (not the whole sheet) so the
+// search box keeps focus/cursor while typing. A sequence guard drops stale
+// responses so a slow earlier query can't overwrite newer results.
 async function runNpiSearch(){
-  capturePatientNotes();
   const inp=document.getElementById('pd-search');
   if(inp) pdState.query=inp.value;
-  if(!(pdState.query||'').trim()){ pdState.error='Type a name to search.'; pdState.results=null; renderPatientSheet(); return; }
-  pdState.searching=true; pdState.error=''; pdState.results=null;
-  renderPatientSheet();
-  try{
-    pdState.results=await npiSearch(pdState.query);
-    pdState.error='';
-  }catch(e){
-    pdState.results=null;
-    pdState.error='Lookup unavailable right now — add the doctor by hand below.';
-  }
-  pdState.searching=false;
-  renderPatientSheet();
+  const q=(pdState.query||'').trim();
+  if(q.length<3){ pdState.results=null; pdState.searching=false; pdState.error=q?'Keep typing…':''; renderPdResults(); return; }
+  const seq=++pdSearchSeq;
+  pdState.searching=true; pdState.error='';
+  renderPdResults();
+  let results=null, error='';
+  try{ results=await npiSearch(q); }
+  catch(e){ error='Lookup unavailable right now — add the doctor by hand below.'; }
+  if(seq!==pdSearchSeq) return; // superseded by a newer keystroke
+  pdState.searching=false; pdState.results=results; pdState.error=error;
+  renderPdResults();
 }
 function onPatientSheetClick(e){
   const wrap=document.getElementById('pd-backdrop');
@@ -3303,7 +3310,7 @@ function onPatientSheetClick(e){
   const addBtn=e.target.closest('[data-pd-add]');
   if(addBtn){ capturePatientNotes(); pdState.adding=true; pdState.results=null; pdState.error=''; renderPatientSheet();
     const s=document.getElementById('pd-search'); if(s) s.focus(); return; }
-  if(e.target.closest('[data-pd-do-search]')){ runNpiSearch(); return; }
+  if(e.target.closest('[data-pd-do-search]')){ if(pdSearchTimer){clearTimeout(pdSearchTimer);pdSearchTimer=null;} runNpiSearch(); return; }
   const pick=e.target.closest('[data-pd-pick]');
   if(pick){
     const r=(pdState.results||[])[parseInt(pick.getAttribute('data-pd-pick'))];
@@ -3330,7 +3337,12 @@ async function addDoctorFromSheet(r){
   showToast('Doctor added');
 }
 function onPatientSheetInput(e){
-  if(e.target.id==='pd-search'){ pdState.query=e.target.value; }
+  if(e.target.id==='pd-search'){
+    pdState.query=e.target.value;
+    // Auto-populate: search as she types (debounced), like address autocomplete.
+    if(pdSearchTimer) clearTimeout(pdSearchTimer);
+    pdSearchTimer=setTimeout(()=>{ pdSearchTimer=null; runNpiSearch(); },350);
+  }
   else if(e.target.id==='pd-notes'){
     const p=getOrInitPatient(pdState.name); p.notes=e.target.value;
     // Debounced autosave: blur/close alone loses dictated notes when the PWA
@@ -3347,7 +3359,7 @@ function onPatientSheetChange(e){
   }
 }
 function onPatientSheetKey(e){
-  if(e.target.id==='pd-search' && e.key==='Enter'){ e.preventDefault(); runNpiSearch(); }
+  if(e.target.id==='pd-search' && e.key==='Enter'){ e.preventDefault(); if(pdSearchTimer){clearTimeout(pdSearchTimer);pdSearchTimer=null;} runNpiSearch(); }
 }
 // ─── DRIVE MODE ───────────────────────────────────────────────────────────────
 // Full-screen, one-stop-at-a-time view for hands-free use on the road. Steps

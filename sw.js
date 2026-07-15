@@ -4,22 +4,26 @@
 // page the moment there's no signal. Strategy:
 //   - The app page itself: NETWORK-FIRST (deploys land immediately when
 //     online), with the cached copy as the offline fallback.
-//   - Versioned CDN assets (Leaflet, supabase-js, fonts): CACHE-FIRST — their
-//     URLs are immutable, refetching them every cold start is pure waste.
+//   - Self-hosted static assets under /vendor/ (Leaflet, supabase-js, fonts):
+//     CACHE-FIRST — they only change with a deliberate version bump, which
+//     must come with a CACHE name bump below.
 //   - Everything else (Supabase API, OSRM, Photon, Census, map tiles, the NPI
 //     Netlify function): NEVER intercepted — data freshness and error
-//     handling stay the app's job.
-const CACHE = 'roundly-shell-v1';
+//     handling stay the app's job. No PHI is ever cached.
+const CACHE = 'roundly-shell-v2';
 const SHELL = [
   '/',
   '/manifest.json',
-  'https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
-  'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js'
+  '/vendor/fonts/nunito.css',
+  '/vendor/fonts/XRXV3I6Li01BKofINeaB.woff2',      // latin
+  '/vendor/fonts/XRXV3I6Li01BKofIMeaBXso.woff2',   // latin-ext
+  '/vendor/fonts/XRXV3I6Li01BKofIOOaBXso.woff2',
+  '/vendor/fonts/XRXV3I6Li01BKofIO-aBXso.woff2',
+  '/vendor/fonts/XRXV3I6Li01BKofIOuaBXso.woff2',
+  '/vendor/leaflet/leaflet.css',
+  '/vendor/leaflet/leaflet.js',
+  '/vendor/supabase/supabase.js'
 ];
-// Hosts whose GETs are safe to serve cache-first (immutable/versioned).
-const CACHE_FIRST_HOSTS = ['unpkg.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
 self.addEventListener('install', e => {
   e.waitUntil((async () => {
@@ -58,13 +62,14 @@ self.addEventListener('fetch', e => {
   }
 
   const url = new URL(req.url);
-  if (CACHE_FIRST_HOSTS.includes(url.hostname) || url.pathname === '/manifest.json') {
+  const isShellAsset = url.origin === self.location.origin &&
+    (url.pathname.startsWith('/vendor/') || url.pathname === '/manifest.json');
+  if (isShellAsset) {
     e.respondWith((async () => {
       const hit = await caches.match(req);
       if (hit) return hit;
       const fresh = await fetch(req);
-      // Opaque responses (no-cors CDN fetches) are cacheable and servable.
-      if (fresh.ok || fresh.type === 'opaque') {
+      if (fresh.ok) {
         const c = await caches.open(CACHE);
         c.put(req, fresh.clone());
       }

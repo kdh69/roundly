@@ -7,6 +7,27 @@
 [functions]
   directory = "netlify/functions"
 
+# Security headers. The CSP's connect-src/img-src/script-src lists are an
+# enforced allowlist of every host the app may talk to — if a data flow isn't
+# listed here, the browser blocks it. Any new external service must be added
+# here deliberately (and, since visits contain patient data, weighed for HIPAA
+# before it ships).
+#   - script-src 'unsafe-inline' is required: the whole app is inline JS in
+#     index.html (single-file rule). geocoding.geo.census.gov is JSONP, so it
+#     loads as a <script>, not a fetch.
+#   - connect-src: Supabase (data + auth), OSRM (route line/mileage), Photon
+#     (address autocomplete), Open-Meteo (weather at the clinician's own base).
+#   - img-src: map tiles (ESRI/OSM/CARTO) + the Google account avatar.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), payment=(), usb=()"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://geocoding.geo.census.gov; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https://server.arcgisonline.com https://services.arcgisonline.com https://tile.openstreetmap.org https://*.basemaps.cartocdn.com https://*.googleusercontent.com; connect-src 'self' https://wxhjfeorwwvruibuvgta.supabase.co wss://wxhjfeorwwvruibuvgta.supabase.co https://router.project-osrm.org https://photon.komoot.io https://api.open-meteo.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+
 # publish = "." serves the whole repo root, which would otherwise expose repo
 # internals as public URLs (DB schema + RLS policy names, planning docs, the
 # function source, collaborator details in CLAUDE.md). Block those paths with a

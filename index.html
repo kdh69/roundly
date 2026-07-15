@@ -10,11 +10,12 @@
 <title>Roundly — Clinician Route &amp; Productivity Tracker</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<!-- All JS/CSS/fonts are self-hosted (vendor/) — no third-party CDNs. This app
+     handles PHI: self-hosting pins exact library versions (supply-chain safety)
+     and keeps every page-load request on our own origin. -->
+<link rel="stylesheet" href="/vendor/fonts/nunito.css">
+<link rel="stylesheet" href="/vendor/leaflet/leaflet.css"/>
+<script src="/vendor/supabase/supabase.js"></script>
 <style>
 /* ============================================================
    COLOR SYSTEM
@@ -377,6 +378,7 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
 .signed-in-email{font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .btn-signout{font-size:11px;padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:var(--white);color:var(--text-muted);cursor:pointer;white-space:nowrap}
 .sync-note{font-size:11px;color:var(--text-muted);line-height:1.5;margin-top:8px}
+.btn-delete-data{font-size:11px;padding:6px 10px;border-radius:20px;border:none;background:var(--red-bg);color:var(--red);font-weight:700;cursor:pointer;margin-top:10px}
 
 /* ===== PIN LOCK SETTINGS ===== */
 .pin-status-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0}
@@ -1115,7 +1117,7 @@ body.hide-fabs .fab,body.hide-fabs .fab-quick,body.hide-fabs .fab-extra{display:
 <div class="toast" id="toast"></div>
 <div class="undo-bar" id="undo-bar"><span id="undo-bar-msg"></span><button class="undo-bar-btn" id="undo-bar-btn">Undo</button></div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/vendor/leaflet/leaflet.js"></script>
 <script>
 // ─── DEFAULT POINT VALUES ─────────────────────────────────────────────────────
 const DEFAULT_POINTS = {
@@ -1492,6 +1494,13 @@ function loadOutbox(){
   if(!Array.isArray(outbox)) outbox=[];
   updateSyncBadge();
 }
+// The outbox holds patient names/addresses/notes in plain localStorage — fine
+// while a session is live (device encryption covers it), but it must not
+// outlive the session on this device. Called on every sign-out path.
+function purgeOutboxLocal(){
+  try{localStorage.removeItem(outboxKey());}catch(e){}
+  outbox=[];
+}
 // Queue a failed write — merging into an already-queued op for the same row,
 // so ten offline status taps stay ONE op with the latest field values.
 function queueWrite(op){
@@ -1761,12 +1770,34 @@ function chooseAccent(id){
 
 // ─── PIN LOCK ─────────────────────────────────────────────────────────────────
 function simpleHash(str){
-  // Lightweight non-cryptographic hash — sufficient for deterring casual
-  // access to a lost/borrowed phone. NOT meant as real encryption.
+  // Legacy hash — kept ONLY to verify PINs stored before the SHA-256 upgrade.
+  // Never used for new PINs; a legacy 'h…' hash is re-hashed to 's…' on the
+  // next successful unlock (see handlePinComplete).
   let h=0;
   for(let i=0;i<str.length;i++){h=(h<<5)-h+str.charCodeAt(i);h|=0;}
   return 'h'+h.toString(36);
 }
+// SHA-256 (WebCrypto) salted with the account id, so a stored hash can't be
+// reversed with a precomputed table and isn't portable across accounts.
+async function hashPin(pin){
+  const data=new TextEncoder().encode('roundly-pin:'+(currentUser?.id||'')+':'+pin);
+  const buf=await crypto.subtle.digest('SHA-256',data);
+  return 's'+Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function pinMatches(pin){
+  if(!pinHash) return false;
+  if(pinHash.charAt(0)==='h') return simpleHash(pin)===pinHash; // pre-upgrade format
+  return (await hashPin(pin))===pinHash;
+}
+// Wrong-PIN backoff: after 5 misses, lock attempts out with doubling delays
+// (30s → 1m → 2m … capped at 8m). Persisted per user so a page reload doesn't
+// reset the clock.
+function pinFailKey(){return 'roundlyPinFails_'+(currentUser?.id||'');}
+function getPinFails(){
+  try{const f=JSON.parse(localStorage.getItem(pinFailKey()));return (f&&typeof f.n==='number')?f:{n:0,until:0};}
+  catch(e){return {n:0,until:0};}
+}
+function setPinFails(f){ try{localStorage.setItem(pinFailKey(),JSON.stringify(f));}catch(e){} }
 function setupLockKeypad(){
   document.getElementById('lock-keypad').addEventListener('click',e=>{
     const btn=e.target.closest('.lock-key');
@@ -1784,7 +1815,7 @@ function updateLockDots(){
   const dots=document.querySelectorAll('#lock-dots .lock-dot');
   dots.forEach((d,i)=>d.classList.toggle('filled',i<pinEntryBuffer.length));
 }
-function handlePinComplete(){
+async function handlePinComplete(){
   if(pinSetupStage==='first'){
     pinSetupFirst=pinEntryBuffer;
     pinEntryBuffer='';updateLockDots();
@@ -1794,8 +1825,9 @@ function handlePinComplete(){
   }
   if(pinSetupStage==='confirm'){
     if(pinEntryBuffer===pinSetupFirst){
-      pinHash=simpleHash(pinEntryBuffer);
+      pinHash=await hashPin(pinEntryBuffer);
       savePinToLocal();
+      setPinFails({n:0,until:0});
       pinSetupStage=null;pinEntryBuffer='';
       hideLockScreen();
       buildSettingsRows();
@@ -1810,10 +1842,25 @@ function handlePinComplete(){
     return;
   }
   // Normal unlock attempt
-  if(simpleHash(pinEntryBuffer)===pinHash){
+  const fails=getPinFails();
+  if(fails.until>Date.now()){
+    const s=Math.ceil((fails.until-Date.now())/1000);
+    document.getElementById('lock-error').textContent=`Too many tries — wait ${s}s`;
+    pinEntryBuffer='';updateLockDots();
+    setTimeout(()=>document.getElementById('lock-error').textContent='',2000);
+    return;
+  }
+  if(await pinMatches(pinEntryBuffer)){
+    // Transparent upgrade of a pre-SHA-256 stored hash.
+    if(pinHash.charAt(0)==='h'){ pinHash=await hashPin(pinEntryBuffer); savePinToLocal(); }
+    setPinFails({n:0,until:0});
     appUnlocked=true;
+    noteActivity();
     hideLockScreen();
   } else {
+    fails.n++;
+    if(fails.n>=5) fails.until=Date.now()+Math.min(30000*Math.pow(2,fails.n-5),480000);
+    setPinFails(fails);
     document.getElementById('lock-error').textContent='Incorrect PIN';
     pinEntryBuffer='';updateLockDots();
     setTimeout(()=>document.getElementById('lock-error').textContent='',2000);
@@ -1828,6 +1875,26 @@ function showLockScreen(){
 function hideLockScreen(){
   document.getElementById('lock-screen').classList.remove('show');
 }
+// ─── IDLE RE-LOCK (automatic logoff, HIPAA §164.312(a)(2)(iii)) ───────────────
+// When a PIN is set, re-lock after 15 minutes without interaction — including
+// coming back to the foreground after 15+ minutes away. Users without a PIN are
+// untouched, and it never fires during Drive Mode, where the phone is mounted
+// and deliberately untouched for long stretches.
+const IDLE_LOCK_MS=15*60*1000;
+let lastActivityAt=Date.now();
+function noteActivity(){lastActivityAt=Date.now();}
+function maybeIdleLock(){
+  if(!pinHash||!appUnlocked) return;
+  if(driveIsOpen()){noteActivity();return;}
+  if(Date.now()-lastActivityAt>IDLE_LOCK_MS){
+    appUnlocked=false;
+    closeAllPanels();
+    showLockScreen();
+  }
+}
+['pointerdown','keydown','touchstart'].forEach(ev=>document.addEventListener(ev,noteActivity,{passive:true}));
+setInterval(maybeIdleLock,30000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')maybeIdleLock();});
 // Arm PIN-setup mode. MUST run showLockScreen() first — it resets
 // pinSetupStage/sub-label to the plain unlock state, so setting them before
 // it would silently turn the new-PIN entry into a doomed unlock attempt.
@@ -1857,6 +1924,8 @@ function forgotPin(){
   // be there again next time you sign in.
   if(confirm('Forgot your PIN? You can sign out instead — your data is safely stored in your Google account and will be there when you sign back in. Sign out now?')){
     pinHash=null;savePinToLocal();
+    setPinFails({n:0,until:0});
+    purgeOutboxLocal();
     sb.auth.signOut();
     hideLockScreen();
     location.reload();
@@ -2030,10 +2099,38 @@ function renderAccountArea(){
       </div>
       <button class="btn-signout" onclick="signOutOfApp()">Sign out</button>
     </div>
-    <div class="sync-note">✓ Signed in with Google. Your visits, patients, and settings are saved to your account and stay private — no one else can see them, and they'll be here if you sign in from a different device.</div>`;
+    <div class="sync-note">✓ Signed in with Google. Your visits, patients, and settings are saved to your account and stay private — no one else can see them, and they'll be here if you sign in from a different device.</div>
+    <button class="btn-delete-data" onclick="deleteAllMyData()">🗑️ Delete all my data</button>`;
+}
+// Permanent erasure of every row this account owns — required so a user (or a
+// departing customer) can destroy their data on demand. Double-confirmed, and
+// suggests a backup first. The Google sign-in itself is unaffected; a fresh
+// sign-in afterwards simply starts empty.
+async function deleteAllMyData(){
+  if(!currentUser) return;
+  if(!confirm('Permanently delete ALL your Roundly data — visits, patients, doctors, extra points, and settings?\n\nThis cannot be undone. You may want to Backup first.')) return;
+  const typed=prompt('Type DELETE to confirm permanent deletion:');
+  if((typed||'').trim().toUpperCase()!=='DELETE'){ showToast('Deletion cancelled'); return; }
+  const uid=currentUser.id;
+  for(const t of ['visits','extra_points','saved_patients','providers','user_settings']){
+    const {error}=await sb.from(t).delete().eq('user_id',uid);
+    if(error){ showToast('⚠️ Could not delete everything — check your connection and try again'); return; }
+  }
+  purgeOutboxLocal();
+  try{
+    localStorage.removeItem('roundlyPinHash_'+uid);
+    localStorage.removeItem(pinFailKey());
+  }catch(e){}
+  await sb.auth.signOut();
+  location.reload();
 }
 async function signOutOfApp(){
   if(!confirm('Sign out of Roundly?')) return;
+  // Push any queued offline writes to the server first, then drop the queue —
+  // whatever couldn't sync is lost, but patient data must not stay on a device
+  // the user is signing out of.
+  try{ await flushOutbox(); }catch(e){}
+  purgeOutboxLocal();
   await sb.auth.signOut();
   // Full reload guarantees no in-memory state (visits, patients, custom
   // category/type labels) carries over if a different person signs in next

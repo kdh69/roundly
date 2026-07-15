@@ -96,6 +96,10 @@ Weekly target: **30 points** (configurable per user in Settings).
 roundly/
 ├── index.html               # Entire app — HTML + CSS + JS in one file
 ├── manifest.json             # PWA manifest for home screen install
+├── sw.js                     # Offline app shell (network-first page, cache-first /vendor/)
+├── vendor/                   # Self-hosted pinned libs: leaflet 1.9.4, supabase-js 2.110.5, Nunito fonts
+├── netlify/functions/npi.js  # NPPES doctor-registry CORS proxy (no patient data)
+├── netlify.toml              # 404s for repo internals + security headers (CSP allowlist)
 ├── supabase_schema.sql       # Original DB schema dump, kept for reference
 ├── supabase/                 # Supabase CLI project (migrations, config)
 │   ├── config.toml
@@ -116,6 +120,9 @@ roundly/
 - Google OAuth redirect URL must stay in sync as `https://roundly-app.netlify.app/**` in both Supabase and Google Cloud Console.
 - Schema changes should go through Supabase CLI migrations (`supabase/migrations/`), not the raw SQL editor, so history stays tracked in git.
 - `git push` to `main` auto-deploys to `roundly-app.netlify.app` via the Netlify GitHub integration — no manual uploads needed.
+- **All JS/CSS/fonts are self-hosted under `vendor/` at pinned versions — never reintroduce CDN `<script>`/`<link>` tags** (supply-chain + HIPAA). Changing any `/vendor/` asset requires bumping the `CACHE` name in `sw.js`.
+- **CSP allowlist:** `netlify.toml` enforces a Content-Security-Policy listing every external host the app may contact. Any new external service must be added there deliberately — and because visits contain patient data (PHI), any host that would receive patient info needs a HIPAA BAA evaluation first.
+- **HIPAA status:** code-side hardening is done (see commit history 2026-07-14), but the app is NOT yet fully HIPAA-compliant for commercial use: outstanding items are Supabase Team plan + HIPAA add-on + BAA, replacing the public OSRM demo + Photon with self-hosted/BAA-covered services, and the business paperwork (customer BAAs, risk analysis, privacy policy). Patient addresses/coords still flow to Photon, Census, and OSRM without BAAs.
 
 ---
 

@@ -89,12 +89,24 @@ What's still open, in order:
 11. **Quick-add ease-of-use workshop (the big one).** The `needs_details` foundation is shipped; open design decisions to make *with her*: should quick-adding a **known** saved patient skip the flag? Should `needs_details` visits **count toward** weekly points/pay before completion (currently yes, at the placeholder category)? Capture-from-notification shortcuts; truly optional type/category vs placeholder-defaulted.
 12. **Verify Drive Mode arrival detection in the field** before building anything new there.
 
-### Platform / packaging — "make it an iPhone app" (discussed Aug 2026, no work started)
-The app is already an installable, offline-capable PWA — `sw.js`, `manifest.json` (`display: standalone`), `apple-mobile-web-app-*` meta, all icons. Three routes, cheapest → most:
-  1. **PWA "Add to Home Screen" — essentially DONE today.** Only cosmetic gap: iOS launch splash screens (`apple-touch-startup-image`), a few hours, optional. **Recommended default.** Inherent iOS-PWA limits: no true background GPS, no reliable push.
-  2. **Capacitor wrapper → App Store app (~1–2 weeks).** Wraps the same `index.html`; adds native GPS/push/biometrics. Costs: dev time + $99/yr Apple account + Mac/Xcode + a Google OAuth native-redirect tweak. Only if Bre wants App-Store presence or background GPS/push.
-  3. **Full native rewrite** — not recommended.
-  - **Decision needed from Bre.** No code on route 2 until she says yes.
+### Platform / packaging — "make it an iPhone app" (DIRECTION CHOSEN 2026-08-26; no code started)
+
+The app is already an installable, offline-capable PWA — `sw.js`, `manifest.json` (`display: standalone`), `apple-mobile-web-app-*` meta, all icons. **Bre already runs it as an installed PWA (Add to Home Screen).** So the base route is done; the question was whether to go native.
+
+**Decision (Kyle, 2026-08-26):** pursue a **Capacitor wrapper → TestFlight**, for two reasons — (a) Kyle wants the real iOS-pipeline reps (his Apple Developer account was just approved; he's already shipped one Xcode app + one Expo app to learn), and (b) some features are genuinely better native, chiefly **Drive Mode** (screen keep-awake + real background GPS, which Safari throttles/kills). Distribution target is **TestFlight**, not the public App Store — this is for Bre to use/test as a real app, and the HIPAA items above block a public listing anyway.
+
+**Expo was explicitly rejected** for Roundly: Expo/React Native means rewriting the whole single-file app in RN components. **Capacitor wraps the existing `index.html` unchanged** — the correct tool here. (Kyle's Expo app is a separate learning exercise, not Roundly.)
+
+Agreed architecture when the work starts:
+- **Separate `roundly-ios/` folder or repo** — do NOT drop `package.json` + `ios/` into the app repo root: Netlify auto-deploys that repo and a `package.json` can make it start running a build. Keeping the wrapper separate also respects the "single `index.html`, no build step" rule for the web app.
+- **Bundle `index.html` locally** (Capacitor `webDir: www`), NOT `server.url` → Netlify. Local bundling is where native plugins (keep-awake, geolocation) behave, works fully offline, and is the more instructive rep. Trade-off: pushing web changes into the app is a `npx cap copy && npx cap sync` + re-upload, not automatic. (`server.url` pointed at Netlify would auto-update but complicates native plugins and reads as "just a website" to App Review — fine only for TestFlight if we later want auto-update.)
+- **Native plugins:** `@capacitor/keep-awake` (wire into `enterDriveMode`/`exitDriveMode`), `@capacitor/geolocation` (background GPS for arrival detection). Add the location + background-mode capabilities and Info.plist usage strings (`NSLocationWhenInUseUsageDescription`, `NSLocationAlwaysAndWhenInUseUsageDescription`) in Xcode.
+- **Google OAuth:** the Supabase OAuth redirect must resolve back inside the WKWebView. Verify the redirect (`roundly-app.netlify.app/**`) completes in the native shell; a custom URL scheme / `ASWebAuthenticationSession` tweak may be needed. **Test this first — it's the most likely breakage.**
+- **TestFlight realities:** builds expire ~90 days (re-upload to refresh); invite Bre as an internal/external tester; each native-code change needs a new Archive + upload.
+
+**Rough flow:** `npm i @capacitor/core @capacitor/cli @capacitor/ios @capacitor/keep-awake @capacitor/geolocation` → `npx cap init Roundly app.roundly.mobile --web-dir=www` → copy `index.html`+`vendor/`+`manifest.json` into `www/` → `npx cap add ios` → `npx cap sync ios` → `npx cap open ios` → set signing team → Archive → TestFlight.
+
+**No code started.** Next session can scaffold `roundly-ios/` (config + `www/` copy + keep-awake wired into Drive Mode + Info.plist strings) on request. A full native rewrite remains **not recommended**.
 
 ### Code cleanups (small, safe)
 13. **Map-view direction button label** — the Map controls button still reads "🕐 Earliest first" vs the list's "🕐 Earliest"; shorten to match.

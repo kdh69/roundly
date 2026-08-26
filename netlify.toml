@@ -41,6 +41,12 @@
   force = true
 
 [[redirects]]
+  from = "/tests/*"
+  to = "/index.html"
+  status = 404
+  force = true
+
+[[redirects]]
   from = "/netlify/*"
   to = "/index.html"
   status = 404

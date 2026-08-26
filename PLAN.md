@@ -14,6 +14,8 @@ Execution plan for reducing daily-use friction. Written for an implementing sess
   - **Slice 6 (proximity / arrival "mark done") → effectively DONE.** Phase 3 added live arrival detection *inside Drive Mode* (`watchPosition` → `driveWatchId`/`onDrivePos`) — exactly where this plan recommended it belongs. No separate list banner needed; verify its in-field behavior with Bre rather than build more.
   - **Slice 7 (offline) → DONE.** Phase 1 shipped `sw.js` (network-first shell) + an `outbox` write queue + refetch-on-return.
 - **This friction plan is essentially complete.** Remaining is the **quick-add ease-of-use workshop with Bre** (see reframed Slice 5) and small cleanups. See **HANDOFF.md** for the full outstanding list and current-state snapshot.
+- **New (Aug 2026), outside this plan's scope:** a "make it an iPhone app" question was scoped — the app is already an installable offline PWA, so the App-Store option is a future Capacitor decision, not friction work. Tracked in **HANDOFF.md** → "Platform / packaging" and CLAUDE.md; nothing to do in this plan.
+- **Also outside this plan's scope (2026-08-26):** a HIPAA / go-to-market audit ran and the code-side hardening shipped (commit `edc635e`: self-hosted `vendor/` libs, CSP + security headers, SHA-256 PIN + lockout, 15-min idle re-lock, outbox purge on sign-out, "Delete all my data"). What's left is vendor/infra + paperwork, not friction work — see **HANDOFF.md → "Go-to-market / HIPAA"** for the ordered outstanding list. The one plan-relevant consequence: when OSRM/Photon get self-hosted, the CLAUDE.md "stay on Photon" rule and the CSP `connect-src` both change.
 
 ---
 

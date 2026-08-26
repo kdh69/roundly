@@ -85,7 +85,8 @@ Weekly target: **30 points** (configurable per user in Settings).
 - Calendar view — month + week views with visit dots and daily point totals
 - Light/dark mode — auto (follows system) or manual override
 - Color themes — 7 accent options (Sunset default, Ocean, Teal, Plum, Rose, Forest, Slate); "soft sunset" visual system: ambient accent-tinted glow blobs painted on `#app`, borderless cards with warm soft shadows, gradient primary actions via the `--accent-grad` token (derived from each accent's two stops)
-- PIN lock — local quick-lock per device (localStorage keyed to Google account ID)
+- PIN lock — local quick-lock per device (localStorage keyed to Google account ID); salted SHA-256 via WebCrypto (`hashPin`/`pinMatches`, legacy `h…` hashes auto-upgrade on next unlock), 5-miss doubling lockout, and a **15-min idle re-lock** when a PIN is set (`maybeIdleLock`; never during Drive Mode)
+- Delete all my data — Settings → Account, double-confirmed (`deleteAllMyData()`): removes every row the account owns across all five tables + local PIN/outbox, then signs out
 - Backup/restore — export all data as JSON, restore merges into current account
 - Export — daily route summary (mileage, points, and pay in PPV mode) via native share sheet on mobile (`navigator.share`), `.txt` download fallback on desktop
 - PWA ready — `manifest.json` for Add to Home Screen on iOS/Android
@@ -101,7 +102,8 @@ roundly/
 ├── sw.js                     # Offline app shell (network-first page, cache-first /vendor/)
 ├── vendor/                   # Self-hosted pinned libs: leaflet 1.9.4, supabase-js 2.110.5, Nunito fonts
 ├── netlify/functions/npi.js  # NPPES doctor-registry CORS proxy (no patient data)
-├── netlify.toml              # 404s for repo internals + security headers (CSP allowlist)
+├── netlify.toml              # 404s for repo internals/tests + security headers (CSP allowlist)
+├── tests/hipaa_tests.js      # Node VM harness: PIN/lock/outbox/deletion paths (`node tests/hipaa_tests.js`)
 ├── supabase_schema.sql       # Original DB schema dump, kept for reference
 ├── supabase/                 # Supabase CLI project (migrations, config)
 │   ├── config.toml
@@ -117,16 +119,17 @@ roundly/
 ## STANDING RULES FOR ALL SESSIONS
 
 - The app is a **single HTML file** — all CSS and JS is inline, no build step, no bundler. **Never split it into separate files** unless explicitly decided together as a deliberate refactor.
-- Before considering any edit to `index.html` done, validate balanced `{}` braces, `()` parens, and `<div>` tags.
+- Before considering any edit to `index.html` done, validate balanced `{}` braces, `()` parens, and `<div>` tags (extract the inline script → `node --check`). If the edit touches PIN / lock / outbox / sign-out / deletion, also run `node tests/hipaa_tests.js` (20 tests).
 - The app is used by real clinicians for real patient data — test carefully before deploying.
 - Date strings must be built from LOCAL date parts (use the `toDateStr()` helper) — never `toISOString().slice(0,10)`, which is UTC and flips "today" to tomorrow after ~7-8 PM Eastern.
-- Address search must stay on Photon (photon.komoot.io), not Nominatim.
+- Address search must stay on Photon, not Nominatim (which bans autocomplete). Currently the public `photon.komoot.io` instance; the go-to-market plan replaces it with a self-hosted Photon (same API) — see HANDOFF.md.
 - Google OAuth redirect URL must stay in sync as `https://roundly-app.netlify.app/**` in both Supabase and Google Cloud Console.
 - Schema changes should go through Supabase CLI migrations (`supabase/migrations/`), not the raw SQL editor, so history stays tracked in git.
 - `git push` to `main` auto-deploys to `roundly-app.netlify.app` via the Netlify GitHub integration — no manual uploads needed.
 - **All JS/CSS/fonts are self-hosted under `vendor/` at pinned versions — never reintroduce CDN `<script>`/`<link>` tags** (supply-chain + HIPAA). Changing any `/vendor/` asset requires bumping the `CACHE` name in `sw.js`.
 - **CSP allowlist:** `netlify.toml` enforces a Content-Security-Policy listing every external host the app may contact. Any new external service must be added there deliberately — and because visits contain patient data (PHI), any host that would receive patient info needs a HIPAA BAA evaluation first.
-- **HIPAA status:** code-side hardening is done (see commit history 2026-07-14), but the app is NOT yet fully HIPAA-compliant for commercial use: outstanding items are Supabase Team plan + HIPAA add-on + BAA, replacing the public OSRM demo + Photon with self-hosted/BAA-covered services, and the business paperwork (customer BAAs, risk analysis, privacy policy). Patient addresses/coords still flow to Photon, Census, and OSRM without BAAs.
+- **Native app / iOS packaging:** the app is already an installable, offline-capable **PWA** (`sw.js` shell, `manifest.json` `display:standalone`, `apple-mobile-web-app-*` meta, `apple-touch-icon.png` + `icon-192/512.png`). "Add to Home Screen" from Safari works today — that path is done bar optional iOS splash-screen images. A real App Store app would be a **Capacitor** wrapper around this same single `index.html` (native GPS/push/biometrics; needs a $99/yr Apple account + Mac/Xcode + a native OAuth-redirect tweak) — do NOT start that until Bre explicitly wants App-Store presence or background GPS/push. A full native rewrite is not warranted. See HANDOFF.md "Platform / packaging".
+- **HIPAA status (2026-08-26):** code-side hardening is done (commit `edc635e`; see HANDOFF.md for the itemized list), but the app is **NOT yet HIPAA-compliant for commercial use**. Outstanding, all non-code: (1) database under a BAA — Supabase Team + HIPAA add-on (~$599/mo) *or* self-host on AWS/GCP whose BAAs are free; (2) self-host OSRM + Photon so patient addresses/coords stop flowing to Photon, Census, and the OSRM demo (also non-commercial-only + revocable); (3) Netlify BAA or a written no-PHI-on-Netlify analysis; (4) paperwork — customer BAA template, risk analysis, breach plan, privacy policy/ToS in-app. Target posture = competitor ZigBuddy's: sell to individual clinicians, say "HIPAA-**aligned**" (never "compliant" until 1–3 close), offer a BAA to any agency that asks. Fine for Bre's personal use today.
 
 ---
 

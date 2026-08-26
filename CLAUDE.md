@@ -65,16 +65,18 @@ Weekly target: **30 points** (configurable per user in Settings).
 ## APP FEATURES (fully built)
 
 - Google sign-in via Supabase OAuth, per-user data separation via RLS
-- Visit management — add/edit/delete visits with address, time, type, category, notes
+- Visit management — add/edit/delete visits with address, time, type, category, notes; deleting shows a 6-second **Undo** bar (immediate delete + `restoreDeletedVisit()`, no blocking confirm)
+- Quick add — a ⚡ FAB opens the add panel collapsed to name + address (rest defaulted); the visit is flagged `needs_details` (migration `20260705140000`) and surfaces a "Needs details" chip on the card/hero plus a tap-to-complete nudge until opened + saved through the full form (`openQuickAddPanel()`, `applyQuickMode()`)
 - Address autocomplete via Photon, biased toward home base location
-- Saved patients — repeat-patient autocomplete by name, auto-fills address
+- Saved patients — repeat-patient autocomplete by name; auto-fills address, coords, and the last-used category / visit type / duration (and pay rate in PPV) for a one-tap repeat visit (`saved_patients.cat/type/dur`, `applyPatientDefaults()`)
 - Date navigation — view/add visits for any date (date strip in Visits tab)
 - Route map — Leaflet satellite/street/hybrid, pins + road-following route line (OSRM), next-stop pin highlighted, date strip on the map, Confirm/Done/Edit/Navigate from pin popups, layer choice remembered per device
 - Route optimization — nearest-neighbor + 2-opt improvement; optimized days follow the stored visit `num` order (flag kept in localStorage per device), all other days follow appointment-time order (`routeVisits()` is the single source of driving order)
 - Miles-saved payoff — after optimizing, the list shows a banner + toast with the estimated miles saved vs. driving in appointment-time order (`estSavedMiles()`; straight-line haversine estimate, always labeled `~`)
 - Visit confirmation — a `confirmed` status (patient confirmed the appt) between pending and done; distinct blue styling on cards/hero/pins/calendar and a count in the day Summary
 - Quick texts — optional per-patient phone (`visits.phone`, carried from `saved_patients`) powers a 💬 action on cards + next-stop hero: a bottom-sheet with Call, "On my way", "Running late", and a custom message, all via `sms:`/`tel:` deep links (`openQuickText()`, `smsHref()`)
-- Drive Mode — full-screen, one-stop-at-a-time hands-free view (`enterDriveMode()` / `renderDriveMode()`), entered from the Visits sort-bar (🚗 Drive) or the Map controls. Steps through the selected day's driving order (`routeVisits`), big Navigate/Text/Call buttons + inline Confirm/Done/Skip; marking Done or Skip auto-advances; swipe or ‹ Prev / Next › to move; segmented progress bar; celebrates when all stops are complete. Full-screen overlay at `z-index:800` (quick-text sheet raised to `900` so it layers above)
+- Drive Mode — full-screen, one-stop-at-a-time hands-free view (`enterDriveMode()` / `renderDriveMode()`), entered from the Visits sort-bar (🚗 Drive) or the Map controls. Steps through the selected day's driving order (`routeVisits`), big Navigate/Text/Call buttons + inline Confirm/Done/Skip; marking Done or Skip auto-advances; swipe or ‹ Prev / Next › to move; segmented progress bar; celebrates when all stops are complete. Full-screen overlay at `z-index:800` (quick-text sheet raised to `900` so it layers above). Live **arrival detection** while driving via `navigator.geolocation.watchPosition` (`driveWatchId`, `onDrivePos`)
+- Offline reliability — service worker app shell (`sw.js`, network-first page so deploys land immediately, cache-first `/vendor/`) + an offline **outbox** that queues visit status writes when there's no signal and flushes on reconnect (`outbox`, `outboxKey()`); refetch-on-return keeps data fresh
 - Mileage tracking — real road distance via OSRM (round trip from home base), haversine straight-line as offline fallback; UI labels which one is showing
 - Productivity points — per-visit points auto-calculated by category, configurable per user
 - Pay mode (salaried / PPV) — optional Paid-Per-Visit tracking: per-category dollar rates, per-visit override, day/week earnings shown alongside points (see Pay mode note above)
@@ -105,7 +107,9 @@ roundly/
 │   ├── config.toml
 │   └── migrations/
 ├── .gitignore
-└── CLAUDE.md                 # This file
+├── CLAUDE.md                 # This file — durable facts + standing rules
+├── PLAN.md                   # Friction-reduction slice plan (near-complete)
+└── HANDOFF.md                # Current-state snapshot + outstanding items
 ```
 
 ---

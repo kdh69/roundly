@@ -9,7 +9,11 @@ Execution plan for reducing daily-use friction. Written for an implementing sess
 - **Gate answered (Bre, July 2026):**
   1. *Schedule format* → arrives **piecemeal and unpredictably** — by phone call, email, or a no-screenshot software; a single item may have name+address but **not** the visit type, and never the whole day at once. **→ Bulk-paste import (Slice 5) is NOT viable as designed** (there is no copy-able full-day list). Superseded by a future "quick-add / ease-of-use" workshop (see Slice 5, reframed).
   2. *OSRM mileage acceptance* → **leave mileage as-is for now.** No GPS/mileage work. Revisit only if the app expands.
-- **Open:** Slice 4 (swipe/targets/delete-undo), Slice 6 (proximity done), Slice 7 (offline). Slice 5 reframed as a later ease-of-use workshop.
+- **Shipped since (this session):** the FAB overlap fix (Visits-only, un-stacked, list padding), Slice 4 (delete-undo + touch targets; swipe dropped — Drive Mode owns it), and the sort-pills → dropdown change.
+- **Slices overtaken by the parallel "Phase" work (already in main):**
+  - **Slice 6 (proximity / arrival "mark done") → effectively DONE.** Phase 3 added live arrival detection *inside Drive Mode* (`watchPosition` → `driveWatchId`/`onDrivePos`) — exactly where this plan recommended it belongs. No separate list banner needed; verify its in-field behavior with Bre rather than build more.
+  - **Slice 7 (offline) → DONE.** Phase 1 shipped `sw.js` (network-first shell) + an `outbox` write queue + refetch-on-return.
+- **This friction plan is essentially complete.** Remaining is the **quick-add ease-of-use workshop with Bre** (see reframed Slice 5) and small cleanups. See **HANDOFF.md** for the full outstanding list and current-state snapshot.
 
 ---
 
@@ -229,7 +233,7 @@ Bre said ease-of-use is likely the **big** win; treat this as its own future ini
 
 **Goal:** open the app while standing at a patient's house → one-tap confirm instead of find-the-card. Foreground only — NO `watchPosition`, NO tracking session.
 
-**Status:** [ ] not started
+**Status:** [x] SUPERSEDED — the parallel Phase 3 shipped **arrival detection inside Drive Mode** (`watchPosition` → `driveWatchId`/`onDrivePos`), which is the better home for this. The foreground-list-banner design below is NOT needed. Next step is to verify Drive Mode's arrival behavior with Bre in the field, not to build this.
 
 ### 6.1 Implementation
 
@@ -252,7 +256,7 @@ Bre said ease-of-use is likely the **big** win; treat this as its own future ini
 
 **Goal:** the app opens and Done/Skip work in rural dead zones; changes sync when signal returns. Deliberately NOT full offline CRUD — add/edit/delete still require signal (offline inserts would need a client-generated-id refactor; out of scope).
 
-**Status:** [ ] not started
+**Status:** [x] DONE (parallel Phase 1) — `sw.js` network-first app shell + `outbox` write queue (`outboxKey()`, flush on reconnect) + refetch-on-return already shipped in main. This plan's design matched what was built.
 
 ### 7.1 Service worker (`sw.js`, new file — the one allowed exception to single-file)
 

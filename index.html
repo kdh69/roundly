@@ -2748,18 +2748,23 @@ function setupOneAddrField(inputId,dropdownId,isHome){
     const q=inp.value.trim();
     if(q.length<4){dd.classList.remove('open');dd.innerHTML='';return;}
     clearTimeout(timer);
-    timer=setTimeout(()=>fetchSuggestions(q,dd,inputId,isHome),550);
+    timer=setTimeout(()=>fetchSuggestions(q,dd,inputId,isHome),250);
   });
   document.addEventListener('click',e=>{
     if(!inp.contains(e.target)&&!dd.contains(e.target)) dd.classList.remove('open');
   });
 }
 async function fetchSuggestions(q,dd,inputId,isHome){
+  // Staleness guard: each call claims a sequence number. If the user keeps
+  // typing, a newer call bumps _seq, so a slow older response is discarded
+  // instead of overwriting the dropdown with stale results.
+  const seq=(dd._seq=(dd._seq||0)+1);
   dd.innerHTML='<div class="addr-searching">Searching…</div>';dd.classList.add('open');
   try{
     // Walks the variant ladder (raw → commas → expanded abbreviations) and
     // keeps a typed house number even when only the street matches.
     let results = await geocodeSearch(q);
+    if(seq!==dd._seq) return; // superseded by a newer keystroke
 
     if(!results.length){
       dd.innerHTML='<div class="addr-searching">No matches found. Try format: Street, City, State (e.g. "123 Main St, Charlotte, NC")</div>';
@@ -2776,6 +2781,7 @@ async function fetchSuggestions(q,dd,inputId,isHome){
       selectAddr(res,inputId,dd,isHome);
     };
   }catch(e){
+    if(seq!==dd._seq) return;
     dd.innerHTML='<div class="addr-searching">Search unavailable — check your connection and try again</div>';
     setTimeout(()=>dd.classList.remove('open'),2200);
   }
@@ -2864,9 +2870,15 @@ async function geocodeSearch(q){
   const numOk=r=>!userNum||!r.houseNumber||String(r.houseNumber).toLowerCase()===userNum.toLowerCase();
   const good=r=>nameOk(r)&&typeOk(r);
 
+  // Fire every variant CONCURRENTLY instead of serially. Photon is ~0.7s per
+  // request, so awaiting up to 4 in a row (the old loop) meant ~3s before any
+  // result showed. Promise.all keeps the exact same selection priority — we
+  // still walk the results in variant order below — at the cost of one round
+  // trip instead of four. A failed variant resolves to [] so one bad request
+  // can't sink the batch.
+  const allRs=await Promise.all(variants.map(v=>photonSearch(v).catch(()=>[])));
   let photonBest=[];
-  for(const v of variants){
-    const rs=await photonSearch(v);
+  for(const rs of allRs){
     if(rs.length && !photonBest.length) photonBest=rs;
     // Best possible: Photon has the user's EXACT house number on the right
     // street (not a different building on it). Use it and skip Census.

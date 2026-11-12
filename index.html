@@ -103,6 +103,24 @@
 [data-accent="slate"]{--accent:#3D4F5C;--accent-mid:#566B7A;--accent-light:#DCE4E8;}
 [data-theme="dark"][data-accent="slate"]{--accent-light:#252E35;}
 
+[data-accent="amber"]{--accent:#B9770E;--accent-mid:#E0A82E;--accent-light:#FBEFD0;}
+[data-theme="dark"][data-accent="amber"]{--accent-light:#3D2E12;}
+
+[data-accent="sky"]{--accent:#1E6FB8;--accent-mid:#3B9BE0;--accent-light:#D6EBFB;}
+[data-theme="dark"][data-accent="sky"]{--accent-light:#17304A;}
+
+[data-accent="berry"]{--accent:#B32D6B;--accent-mid:#D45891;--accent-light:#FADCEA;}
+[data-theme="dark"][data-accent="berry"]{--accent-light:#3C1A2A;}
+
+[data-accent="sage"]{--accent:#4F7A42;--accent-mid:#6FA05E;--accent-light:#E0EFD8;}
+[data-theme="dark"][data-accent="sage"]{--accent-light:#24311C;}
+
+[data-accent="indigo"]{--accent:#4C46B6;--accent-mid:#6E67D6;--accent-light:#E2E0FA;}
+[data-theme="dark"][data-accent="indigo"]{--accent-light:#241F4A;}
+
+[data-accent="clay"]{--accent:#B0542E;--accent-mid:#D27A4E;--accent-light:#F8E2D4;}
+[data-theme="dark"][data-accent="clay"]{--accent-light:#3A2317;}
+
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg-base);color:var(--text);overscroll-behavior:none;transition:background 0.2s,color 0.2s}
 /* Ambient backdrop — warm base + big soft accent "glow blobs" (the airy look
@@ -179,6 +197,25 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
 .stat-val{font-size:17px;font-weight:700;color:var(--text);line-height:1}
 .stat-lbl{font-size:9px;color:var(--text-muted);margin-top:3px}
 
+/* ===== CONDENSED SUMMARY CARD (replaces stats bar + weekly bar + earnings) ===== */
+.summary-card{margin:0 8px 12px;background:var(--white);border-radius:var(--radius-lg);padding:13px 14px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:11px;flex-shrink:0}
+.sum-top{display:flex;align-items:center;gap:13px;cursor:pointer}
+.sum-ring{--p:0;width:54px;height:54px;border-radius:50%;flex-shrink:0;position:relative;
+  background:conic-gradient(var(--accent) calc(var(--p)*1%),var(--accent-light) 0);
+  display:flex;align-items:center;justify-content:center;transition:background .4s ease}
+.sum-ring::after{content:"";position:absolute;inset:5px;border-radius:50%;background:var(--white)}
+.sum-ring b{position:relative;z-index:1;font-size:14px;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums}
+.sum-lead{display:flex;flex-direction:column;gap:3px;min-width:0}
+.sum-big{font-size:16px;font-weight:800;color:var(--text);letter-spacing:-0.01em;line-height:1.1}
+.sum-small{font-size:11.5px;color:var(--text-muted);line-height:1.3}
+.sum-small:empty{display:none}
+.sum-minis{display:flex;gap:8px}
+.sum-mini{flex:1;min-width:0;background:var(--gray-50);border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;gap:2px;cursor:pointer;transition:background .15s}
+.sum-mini:active{background:var(--gray-100)}
+.sm-k{font-size:9.5px;color:var(--text-muted);font-weight:700;letter-spacing:0.03em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sm-v{font-size:15px;font-weight:800;color:var(--text);letter-spacing:-0.01em;font-variant-numeric:tabular-nums}
+.sm-v.money{color:var(--green)}
+
 /* ===== WEEKLY BAR ===== */
 .weekly-bar-wrap{background:transparent;padding:0 12px 12px;flex-shrink:0}
 .weekly-bar-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
@@ -253,10 +290,10 @@ html,body{height:100%;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Seg
 .visit-card.status-pending{border-left:4px solid var(--amber)}
 .visit-card.status-confirmed{border-left:4px solid var(--blue)}
 .card-top{display:flex;align-items:flex-start;gap:10px;padding:10px 12px 8px}
-.visit-num-bubble{width:26px;height:26px;border-radius:50%;background:var(--accent-light);color:var(--accent);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
-.visit-card.status-done .visit-num-bubble{background:var(--teal-bg);color:var(--teal)}
-.visit-card.status-confirmed .visit-num-bubble{background:var(--blue-bg);color:var(--blue)}
-.visit-card.status-skipped .visit-num-bubble{background:var(--gray-100);color:var(--gray-600)}
+.visit-num-bubble{width:27px;height:27px;border-radius:9px;background:var(--accent-grad);color:#fff;font-size:12.5px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;font-variant-numeric:tabular-nums}
+.visit-card.status-done .visit-num-bubble{background:var(--teal);color:#fff}
+.visit-card.status-confirmed .visit-num-bubble{background:var(--blue);color:#fff}
+.visit-card.status-skipped .visit-num-bubble{background:var(--gray-400);color:#fff}
 .card-info{flex:1;min-width:0}
 .card-name{font-size:15px;font-weight:600;color:var(--text);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .card-addr{font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:5px}
@@ -415,9 +452,16 @@ body.hide-fabs .fab,body.hide-fabs .fab-quick,body.hide-fabs .fab-extra{display:
 /* ===== BOTTOM NAV ===== */
 .bottom-nav{display:flex;border-top:none;background:var(--white);padding-bottom:var(--safe-bottom);flex-shrink:0;box-shadow:0 -6px 24px rgba(93,64,42,0.10);position:relative;z-index:10}
 .bottom-nav-btn{flex:1;padding:7px 2px;font-size:9.5px;font-weight:600;border:none;background:none;color:var(--gray-600);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;transition:color 0.15s}
-.bottom-nav-btn .nav-icon{font-size:18px;padding:1px 10px;border-radius:12px;transition:background 0.15s}
+.bottom-nav-btn .nav-icon{font-size:18px;padding:4px 14px;border-radius:12px;transition:background 0.15s;display:flex;align-items:center;justify-content:center}
+.bottom-nav-btn .nav-icon svg{width:22px;height:22px;display:block;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .bottom-nav-btn.active{color:var(--accent)}
 .bottom-nav-btn.active .nav-icon{background:var(--accent-light)}
+
+/* Rounded, app-matching Leaflet zoom control (was raw boxy default) */
+.leaflet-control-zoom.leaflet-bar{border:none!important;border-radius:13px!important;box-shadow:var(--shadow-md)!important;overflow:hidden}
+.leaflet-control-zoom a{width:34px!important;height:34px!important;line-height:34px!important;background:var(--white)!important;color:var(--text)!important;border:none!important;font-size:18px!important;font-weight:700}
+.leaflet-control-zoom a:hover{background:var(--gray-100)!important}
+.leaflet-control-zoom a.leaflet-control-zoom-in{border-bottom:1px solid var(--border)!important}
 
 /* ===== VIEWS ===== */
 #view-map,#view-list,#view-summary,#view-points,#view-calendar{display:none;flex-direction:column;flex:1;overflow:hidden;min-height:0}
@@ -732,21 +776,20 @@ body.hide-fabs .fab,body.hide-fabs .fab-quick,body.hide-fabs .fab-extra{display:
         <button class="btn-settings" onclick="openSettings()" title="Settings" aria-label="Settings">⚙️</button>
       </div>
     </div>
-    <div class="stats-bar">
-      <div class="stat-card" onclick="switchView('summary')" role="button"><div class="stat-val" id="stat-miles">0.0</div><div class="stat-lbl" id="stat-miles-lbl">Est. Miles</div></div>
-      <div class="stat-card" onclick="openPointsView()" role="button"><div class="stat-val" id="stat-pts-today">0.0</div><div class="stat-lbl" id="stat-pts-today-lbl">Today pts</div></div>
-      <div class="stat-card" onclick="openPointsView()" role="button"><div class="stat-val" id="stat-pts-week">0.0</div><div class="stat-lbl">Week pts</div></div>
-      <div class="stat-card" onclick="openPointsView()" role="button"><div class="stat-val" id="stat-pts-remain">—</div><div class="stat-lbl">To target</div></div>
-    </div>
-    <div class="weekly-bar-wrap" onclick="openPointsView()" role="button">
-      <div class="weekly-bar-top">
-        <span class="weekly-bar-lbl" id="weekly-bar-lbl">Weekly target: 30 pts</span>
-        <span class="weekly-bar-val" id="weekly-bar-pct">0%</span>
+    <div class="summary-card">
+      <div class="sum-top" onclick="openPointsView()" role="button" aria-label="Weekly points progress">
+        <div class="sum-ring" id="sum-ring"><b id="sum-ring-val">0</b></div>
+        <div class="sum-lead">
+          <span class="sum-big" id="sum-lead-main">0 / 30 pts this week</span>
+          <span class="sum-small" id="sum-forecast"></span>
+        </div>
       </div>
-      <div class="weekly-bar-track"><div class="weekly-bar-fill" id="weekly-bar-fill" style="width:0%"></div></div>
-      <div class="week-forecast" id="week-forecast"></div>
+      <div class="sum-minis">
+        <div class="sum-mini" onclick="openPointsView()" role="button"><span class="sm-k" id="sum-today-lbl">Today</span><span class="sm-v" id="sum-today">0</span></div>
+        <div class="sum-mini" onclick="switchView('summary')" role="button"><span class="sm-k" id="sum-miles-lbl">Est. miles</span><span class="sm-v" id="sum-miles">0.0</span></div>
+        <div class="sum-mini" onclick="openPointsView()" role="button"><span class="sm-k" id="sum-mini3-lbl">To target</span><span class="sm-v" id="sum-mini3">—</span></div>
+      </div>
     </div>
-    <div class="earnings-strip" id="earnings-strip" onclick="openPointsView()" role="button" style="display:none"></div>
   </div>
 
   <!-- VIEW: LIST -->
@@ -852,11 +895,11 @@ body.hide-fabs .fab,body.hide-fabs .fab-quick,body.hide-fabs .fab-extra{display:
 
   <!-- BOTTOM NAV -->
   <div class="bottom-nav">
-    <button class="bottom-nav-btn active" id="nav-list" onclick="switchView('list')"><span class="nav-icon">📋</span>Visits</button>
-    <button class="bottom-nav-btn" id="nav-calendar" onclick="switchView('calendar')"><span class="nav-icon">📅</span>Calendar</button>
-    <button class="bottom-nav-btn" id="nav-map" onclick="switchView('map')"><span class="nav-icon">🛰️</span>Map</button>
-    <button class="bottom-nav-btn" id="nav-points" onclick="switchView('points')"><span class="nav-icon">⭐</span>Points</button>
-    <button class="bottom-nav-btn" id="nav-summary" onclick="switchView('summary')"><span class="nav-icon">📊</span>Summary</button>
+    <button class="bottom-nav-btn active" id="nav-list" onclick="switchView('list')"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M9 11h6M9 15h4"/></svg></span>Visits</button>
+    <button class="bottom-nav-btn" id="nav-calendar" onclick="switchView('calendar')"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>Calendar</button>
+    <button class="bottom-nav-btn" id="nav-map" onclick="switchView('map')"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 20l-6-3V4l6 3 6-3 6 3v13l-6-3-6 3z"/><path d="M9 7v13M15 4v13"/></svg></span>Map</button>
+    <button class="bottom-nav-btn" id="nav-points" onclick="switchView('points')"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5-5.8-3-5.8 3 1.1-6.5L2.6 9.3l6.5-.9z"/></svg></span>Points</button>
+    <button class="bottom-nav-btn" id="nav-summary" onclick="switchView('summary')"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-6"/></svg></span>Summary</button>
   </div>
 </div>
 
@@ -1148,7 +1191,13 @@ const ACCENT_PRESETS = [
   {id:'plum',name:'Plum',color:'#6C3483'},
   {id:'rose',name:'Rose',color:'#A33A5B'},
   {id:'forest',name:'Forest',color:'#28714C'},
-  {id:'slate',name:'Slate',color:'#3D4F5C'}
+  {id:'slate',name:'Slate',color:'#3D4F5C'},
+  {id:'amber',name:'Amber',color:'#E0A82E'},
+  {id:'sky',name:'Sky',color:'#3B9BE0'},
+  {id:'berry',name:'Berry',color:'#D45891'},
+  {id:'sage',name:'Sage',color:'#6FA05E'},
+  {id:'indigo',name:'Indigo',color:'#6E67D6'},
+  {id:'clay',name:'Clay',color:'#D27A4E'}
 ];
 
 // ─── LIVE SETTINGS ────────────────────────────────────────────────────────────
@@ -4350,53 +4399,55 @@ function renderList(){
 }
 
 // ─── RENDER STATS ─────────────────────────────────────────────────────────────
+// Trim a points value to at most 1 decimal, dropping a trailing ".0".
+function trimPts(n){ const s=Number(n).toFixed(1); return s.endsWith('.0')?s.slice(0,-2):s; }
 function renderStats(){
   const mi=calcTotalMiles();
   const todayPts=calcDayPoints(listSelectedDate);
   const weekPts=calcWeekPoints(0);
   const remain=Math.max(0,weeklyTarget-weekPts);
   const pct=Math.min(100,(weekPts/weeklyTarget)*100);
-  document.getElementById('stat-miles').textContent=mi.toFixed(1);
-  document.getElementById('stat-miles-lbl').textContent=milesAreRoad()?'Miles':'Est. Miles';
-  document.getElementById('stat-pts-today').textContent=todayPts.toFixed(2);
-  // This stat follows the SELECTED day, which isn't always today
-  document.getElementById('stat-pts-today-lbl').textContent=listSelectedDate===todayStr()?'Today pts':'Day pts';
-  document.getElementById('stat-pts-week').textContent=weekPts.toFixed(2);
-  document.getElementById('stat-pts-remain').textContent=weekPts>=weeklyTarget?'🎉 Done!':remain.toFixed(2);
-  const fill=document.getElementById('weekly-bar-fill');
-  fill.style.width=pct.toFixed(1)+'%';
-  fill.className='weekly-bar-fill'+(pct<50?' warn':'');
-  document.getElementById('weekly-bar-pct').textContent=pct.toFixed(0)+'%';
-  document.getElementById('weekly-bar-lbl').textContent=`Weekly target: ${weeklyTarget} pts`;
+  const done=weekPts>=weeklyTarget;
+  const sel=listSelectedDate===todayStr();
 
-  // Forecast: turn "points remaining" into concrete visit counts.
-  const fc=document.getElementById('week-forecast');
+  // Progress ring + lead line
+  const ring=document.getElementById('sum-ring');
+  if(ring) ring.style.setProperty('--p',pct.toFixed(1));
+  document.getElementById('sum-ring-val').textContent=trimPts(weekPts);
+  document.getElementById('sum-lead-main').textContent=`${trimPts(weekPts)} / ${weeklyTarget} pts this week`;
+
+  // Forecast: turn "points remaining" into concrete visit counts (derived, so
+  // it survives renamed/removed/custom categories).
+  const fc=document.getElementById('sum-forecast');
   if(fc){
-    if(remain<=0){ fc.textContent=''; fc.style.display='none'; }
+    if(done){ fc.textContent='🎉 Weekly goal reached!'; }
     else{
-      // Frame the gap as counts of the lowest- and highest-value categories
-      // (derived, so it survives renamed/removed/custom categories).
       let minK=null,minV=Infinity,maxK=null,maxV=0;
       Object.keys(catPoints).forEach(k=>{ const val=catPoints[k]||0; if(val<=0) return;
         if(val<minV){minV=val;minK=k;} if(val>maxV){maxV=val;maxK=k;} });
       const parts=[];
       if(minK) parts.push(`${Math.ceil(remain/minV)} ${CAT_LABELS[minK]||minK}`);
       if(maxK && maxK!==minK) parts.push(`${Math.ceil(remain/maxV)} ${CAT_LABELS[maxK]||maxK}`);
-      fc.textContent = parts.length ? `${remain.toFixed(2)} to go — about ${parts.join(' or ')}` : '';
-      fc.style.display = parts.length ? 'block' : 'none';
+      fc.textContent = parts.length ? `${trimPts(remain)} to go — about ${parts.join(' or ')}` : `${trimPts(remain)} pts to go`;
     }
   }
 
-  // PPV earnings strip (day + week dollars). Hidden entirely when salaried.
-  const es=document.getElementById('earnings-strip');
-  if(es){
-    if(isPPV()){
-      const dayLbl=listSelectedDate===todayStr()?'Today':'Day';
-      es.innerHTML=`<span class="es-item"><span class="es-lbl">${dayLbl}</span><span class="es-val">${fmtMoney(calcDayPay(listSelectedDate))}</span></span><span class="es-item"><span class="es-lbl">This week</span><span class="es-val">${fmtMoney(calcWeekPay(0))}</span></span>`;
-      es.style.display='flex';
-    } else {
-      es.style.display='none';
-    }
+  // Mini stats row
+  document.getElementById('sum-today-lbl').textContent=sel?'Today pts':'Day pts';
+  document.getElementById('sum-today').textContent=trimPts(todayPts);
+  document.getElementById('sum-miles-lbl').textContent=milesAreRoad()?'Miles':'Est. miles';
+  document.getElementById('sum-miles').textContent=mi.toFixed(1);
+
+  const m3l=document.getElementById('sum-mini3-lbl');
+  const m3=document.getElementById('sum-mini3');
+  if(isPPV()){
+    m3l.textContent='Week pay';
+    m3.textContent=fmtMoney(calcWeekPay(0));
+    m3.classList.add('money');
+  } else {
+    m3l.textContent='To target';
+    m3.textContent=done?'🎉 Done!':trimPts(remain);
+    m3.classList.remove('money');
   }
 }
 
